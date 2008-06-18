@@ -2,53 +2,15 @@ module OscillatorNeuralNetwork
   
   # = Introduction
   # 
-  # This is an implementation of oscillatory neural networks
-  # using the Backpropagation is a supervised learning technique (described 
-  # by Paul Werbos in 1974, and further developed by David E. 
-  # Rumelhart, Geoffrey E. Hinton and Ronald J. Williams in 1986)
+  # This is an implementation of oscillatory neural networks which uses a genetic
+  # algorithm as the learning rule. It can learn by adjusting connection weights
+  # or the "natural" frequencies/amplitudes/phases of the oscillators, depending on the
+  # type of genetic algorithm selected from the OscillatorGeneticAlgorithm module.
   # 
   # = How to use it
   # 
-  #   # Create the network
-  #   net = Backpropagation.new([4, 3, 2])  # 4 inputs
-  #                                         # 1 hidden layer with 3 neurons, 
-  #                                         # 2 outputs
-  #   # Train the network 
-  #   1..upto(100) do |i|
-  #     net.train(example[i], result[i])
-  #   end
   #   
-  #   # Use it: Evaluate data with the trained network
-  #   net.eval([12, 48, 12, 25])  # =>  [0.86, 0.01]
-  #   
-  class Backpropagation
-
-    DEFAULT_BETA = 0.5
-    DEFAULT_LAMBDA = 0.25
-    DEFAULT_THRESHOLD = 0.66
-    
-  # Creates a new network specifying the its architecture.
-  # E.g.
-  #    
-  #   net = Backpropagation.new([4, 3, 2])  # 4 inputs
-  #                                         # 1 hidden layer with 3 neurons, 
-  #                                         # 2 outputs    
-  #   net = Backpropagation.new([2, 3, 3, 4])   # 2 inputs
-  #                                             # 2 hidden layer with 3 neurons each, 
-  #                                             # 4 outputs    
-  #   net = Backpropagation.new([2, 1])   # 2 inputs
-  #                                       # No hidden layer
-  #                                       # 1 output
-  #
-  # Optionally you can customize certain parameters:
-  # 
-  # threshold = A real number which we will call Threshold. 
-  # Experiments have shown that best values for q are between 0.25 and 1. 
-  # 
-  # lambda = The Learning Rate: a real number, usually between 0.05 and 0.25.
-  # 
-  # momentum = A momentum will avoid oscillations during learning, converging 
-  # to a solution in less iterations.
+  class GeneticAlgorithmONN 
 
     def initialize(layer_sizes, threshold=DEFAULT_THRESHOLD, lambda=DEFAULT_LAMBDA, momentum=DEFAULT_BETA)
       @neurons = []
@@ -62,7 +24,7 @@ module OscillatorNeuralNetwork
 
   # Evaluates the input.
   # E.g.
-  #     net = Backpropagation.new([4, 3, 2])
+  #     net = GeneticAlgorithmONN.new([4, 3, 2])
   #     net.eval([25, 32.3, 12.8, 1.5])
   #         # =>  [0.83, 0.03]
     def eval(input)
