@@ -21,7 +21,7 @@ module OscillatorNeuralNetwork
       @connections = connections
 
       # Iterate through the rows of states and create a new neuron for each state
-      states.size1 times do |neuron_index|
+      states.size1.times do |neuron_index|
         @neurons << OscillatorNeuron.new(states[neuron_index]) 
       end
       @neurons.reverse!
