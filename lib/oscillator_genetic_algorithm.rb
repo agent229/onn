@@ -26,11 +26,11 @@ module OscillatorGeneticAlgorithm
   #     4. Until termination
   class GeneticSearch
    
-    srand(1) # For repeatability, can change/record seed
     attr_accessor :population
 
     # TODO see where chromosome initialization comes from, how to set it to weight/param type...  
     def initialize(initial_population_size, generations)
+      srand(1) # For repeatability, can change/record seed
       @population_size = initial_population_size
       @max_generation = generations
       @generation = 0
@@ -143,11 +143,11 @@ module OscillatorGeneticAlgorithm
   # the user can simply multiply by the appropriate scale once they recieve the data.
   class ParamChromosome
     
-    srand(1) # For repeatability, can change/record seed
     attr_accessor :data
     attr_accessor :normalized_fitness
     
     def initialize(data)
+      srand(1) # For repeatability, can change/record seed
       @data = data
     end
     
@@ -233,11 +233,11 @@ module OscillatorGeneticAlgorithm
   # There should be no crossover here as it doesn't make sense for this type of net; mutation only.
   class WeightChromosome
     
-    srand(1) # For repeatability, can change/record seed
     attr_accessor :data
     attr_accessor :normalized_fitness
     
     def initialize(data)
+      srand(1) # For repeatability, can change/record seed
       @data = data
     end
     
