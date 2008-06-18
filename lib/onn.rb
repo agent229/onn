@@ -4,73 +4,57 @@ module OscillatorNeuralNetwork
   # algorithm as the learning rule. It can learn by adjusting either connection weights
   # or the "natural" frequencies/amplitudes/phases of the oscillators, depending on the
   # type of genetic algorithm selected from the OscillatorGeneticAlgorithm module.
+  #
   # This is based on the neural network from the ai4r library.
-  
+ 
+  require("rbgsl") # For Matrix structures
+
   class GeneticAlgorithmONN 
 
-    # Initializes the ONN with the given connections matrix and frequencies, phases, and
-    # amplitudes vectors.
-    def initialize(connections, frequencies, phases, amplitudes)
+    # Initializes an ONN of n elements with any structure and simple oscillators. 
+    #   connections: an nxn weighted connections Matrix (range: 0-1) where the ijth weight corresponds
+    #                to a weighted connection from node i to node j
+    #   states: an nx3 Matrix of the natural amplitudes, frequencies, and phases  of the neurons, 
+    #           where the row index identifies the node and the column an attribute
+    def initialize(connections, states)
       @neurons = []
-      layer_sizes.reverse.each do |layer_size|
-        layer = []
-        layer_size.times { layer <<  Neuron.new(@neurons.last, threshold, lambda, momentum) }
-        @neurons << layer
+      @connections = connections
+
+      # Iterate through the rows of states and create a new neuron for each state
+      states.size1 times do |neuron_index|
+        @neurons << OscillatorNeuron.new(states[neuron_index]) 
       end
       @neurons.reverse!
     end
 
-    # Evaluates the input, which should sets of frequencies/phases/amplitudes, one set
-    # for each input node.
-    def eval(input)
-      #check input size
+    # Evaluates the input. When there are n input nodes, the input_state is an nx3 matrix, where the rows
+    # correspond to nodes and the columns to amplitude, frequency, and phase (in that order).
+    def eval(input_state)
 
-      #Present input
-      input.each_index do |input_index|
-        @neurons.first[input_index].propagate(input[input_index])
+      # Present input, propagate from input nodes
+      input_state.size1 times do |input_index|
+        @neurons[input_index].propagate(input_state[input_index])
       end
-      #Propagate
-      @neurons[1..-1].each do |layer|
-        layer.each {|neuron| neuron.propagate}
-      end
+      # TODO how will propagate know which nodes we are talking about. should neurons know their connections?...?
+
+      #Propagate through the rest
       output = []
-      @neurons.last.each { |neuron| output << neuron.state }
+      # TODO write propagation using connections matrix... 
       return output
+
     end
 
     # This method trains the network using the genetic algorithm.
     # 
-    # input: Networks input
-    # output: Expected output for the given input.
+    # input: Networks input (nx3 matrix form)
+    # output: Expected output for the given input (nx3 matrix form).
     #
     # This method returns the network error (not an absolut amount, 
     # the difference between real output and the expected output)
     def train(input, output)
-      #Eval input
-      eval(input)
-      #Set expected output
-      output.each_index do |output_index|
-        @neurons.last[output_index].expected_output = output[output_index]
-      end
-      #Calculate error
-      @neurons.reverse.each do |layer|
-        layer.each {|neuron| neuron.calc_error}
-      end
-      #Change weight
-      @neurons.each do |layer|
-        layer.each {|neuron| neuron.change_weights }
-      end
-      #return net error
-      return @neurons.last.collect { |x| x.calc_error }
-    end
-
-    private
-    def print_weight
-      @neurons.each_index do |layer_index|
-        @neurons[layer_index].each_index do |neuron_index| 
-          puts "L #{layer_index} N #{neuron_index} W #{@neurons[layer_index][neuron_index].w.inspect}"
-        end
-      end
+      # This entire thing just needs to call the genetic algorithm for training..... TODO
+      
+      # Return net error by propagating thru with result of GA
     end
     
   end
@@ -78,69 +62,35 @@ module OscillatorNeuralNetwork
   
   class OscillatorNeuron
     
-    attr_accessor :state
     attr_accessor :error
     attr_accessor :expected_output
-    attr_accessor :w
-    attr_accessor :x
-    attr_accessor :amp
-    attr_accessor :phase
-    attr_accessor :freq
-    
-    def initialize(childs, threshold, lambda, momentum)
-      #instance state
-      @w = nil
-      @childs = childs
+    attr_accessor :last_state
+    attr_accessor :state
+   
+   # Initializes a new neuron with the given initial_state, which should be a Vector containing
+   # in order, [amplitude, frequency, phase]
+    def initialize(initial_state)
+      # Instance state
       @error = nil
-      @state = 0
-      @pushed = 0
-      @last_delta = 0
-      @x = 0
-      @last_amp = amp
-      @last_phase = phase
-      @last_freq = freq
-
-      #Parameters
-      @lambda = lambda
-      @momentum = momentum
-      @threshold = threshold
-      @amp = amp
-      @phase = phase
-      @freq = freq
-
-      #init w     
-      if(childs)
-        @w = []
-        childs.each { @w << init_weight }
-      end
+      @last_state = nil 
+      @state = initial_state 
     end
-    
+   
+    # TODO figure out what this is?
     def push(x)
       @pushed += x
     end
     
     def propagate(input = nil)
-
+      # TODO write propagation!
     end
     
     def calc_error
-      if(!@childs && @expected_output)
-        @error = (@expected_output - @state)
-      elsif(@childs)
-        @error = 0
-        @childs.each_index do |child_index|
-          @error += (@childs[child_index].error * @w[child_index])
-        end
-      end
+      # TODO write error calculation
     end
     
     def change_weights
-
-    end
-    
-    private 
-    def init_weight
-      rand/4
+      # TODO write change weights (also depends on the type of evolution...)
     end
 
   end
