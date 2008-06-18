@@ -25,9 +25,11 @@ module OscillatorGeneticAlgorithm
   #           4. Replace worst ranked part of population with offspring
   #     4. Until termination
   class GeneticSearch
-    
+   
+    srand(1) # For repeatability, can change/record seed
     attr_accessor :population
-    # TODO see where chromosome initialization comes from, how to set it...  
+
+    # TODO see where chromosome initialization comes from, how to set it to weight/param type...  
     def initialize(initial_population_size, generations)
       @population_size = initial_population_size
       @max_generation = generations
@@ -48,12 +50,10 @@ module OscillatorGeneticAlgorithm
     def generate_initial_population
      @population = []
      @population_size.times do
-       population << chromosome.seed
+       population << chromosome.seed # TODO which chromosome is it using? how do i set it?
      end
     end
     
-    # select best-ranking individuals to reproduce
-    # 
     # selection is the stage of a genetic algorithm in which individual 
     # genomes are chosen from a population for later breeding. 
     # there are several generic selection algorithms, such as 
@@ -126,7 +126,6 @@ module OscillatorGeneticAlgorithm
     end
     
   private 
-  
     def select_random_individual(acum_fitness)
       select_random_target = acum_fitness * rand
       local_acum = 0
@@ -135,14 +134,16 @@ module OscillatorGeneticAlgorithm
         return chromosome if local_acum >= select_random_target
       end
     end
-     
   end
 
   # A ParamChromosome describes one of the parameters of an oscillator (with one entry
   # for each oscillator in the network). This could be natural phase, amplitude, or frequency.
   # Thus the number of data in the chromosome should be the number of oscillators in the network.
+  # The chromosome data will be normalized on [0,1) so that it may be used for different purposes;
+  # the user can simply multiply by the appropriate scale once they recieve the data.
   class ParamChromosome
     
+    srand(1) # For repeatability, can change/record seed
     attr_accessor :data
     attr_accessor :normalized_fitness
     
@@ -232,6 +233,7 @@ module OscillatorGeneticAlgorithm
   # There should be no crossover here as it doesn't make sense for this type of net; mutation only.
   class WeightChromosome
     
+    srand(1) # For repeatability, can change/record seed
     attr_accessor :data
     attr_accessor :normalized_fitness
     
@@ -278,15 +280,7 @@ module OscillatorGeneticAlgorithm
     # population. Usually the chromosome is generated randomly, but you can 
     # use some problem domain knowledge, to generate better initial solutions.
     def self.seed
-      data_size = @@costs[0].length
-      available = []
-      0.upto(data_size-1) { |n| available << n }
-      seed = []
-      while available.length > 0 do 
-        index = rand(available.length)
-        seed << available.delete_at(index)
-      end
-      return Chromosome.new(seed)
+      # TODO
     end
 
     def self.set_cost_matrix(costs)
