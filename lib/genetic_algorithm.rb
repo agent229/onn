@@ -37,8 +37,7 @@ module GeneticAlgorithm
   class GeneticSearch
     
     attr_accessor :population
-    
-    
+      
     def initialize(initial_population_size, generations)
       @population_size = initial_population_size
       @max_generation = generations
@@ -142,7 +141,8 @@ module GeneticAlgorithm
       return the_best
     end
     
-    private 
+  private 
+  
     def select_random_individual(acum_fitness)
       select_random_target = acum_fitness * rand
       local_acum = 0
@@ -156,7 +156,8 @@ module GeneticAlgorithm
 
   # A ParamChromosome describes one of the parameters of an oscillator (with one entry
   # for each oscillator in the network). This could be natural phase, amplitude, or frequency.
-  # Therefore the number of data in the chromosome should be the number of oscillators in the network.  # This chromosome class does use crossover as it makes more sense for this data set. 
+  # Therefore the number of data in the chromosome should be the number of oscillators in the network.
+  # This chromosome class does use crossover as it makes more sense for this data set. 
   class ParamChromosome
     
     attr_accessor :data
@@ -309,4 +310,5 @@ module GeneticAlgorithm
       @@costs = costs
     end
   end
+end
 
