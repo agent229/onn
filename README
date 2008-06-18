@@ -1,1 +1,6 @@
 This code is based on ai4r: http://ai4r.rubyforge.org/index.html
+
+Implements an oscillator neural network which uses a genetic
+algorithm as its learning/training rule. Flexible enough to
+accomodate any network structure and to train by weights 
+or by varying inherent properties of the oscillators.
