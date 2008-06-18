@@ -51,14 +51,14 @@ module GeneticAlgorithm
     #           1. Select best-ranking individuals to reproduce
     #           2. Breed new generation through crossover and mutation (genetic operations) and give birth to offspring
     #           3. Evaluate the individual fitnesses of the offspring
-    #           4. Replace worst ranked part of population with offspring
-    #     4. Until termination    
-    #     5. Return the best chromosome
+    #           4. replace worst ranked part of population with offspring
+    #     4. until termination    
+    #     5. return the best chromosome
     def run
-      generate_initial_population                    #Generate initial population 
+      generate_initial_population                    #generate initial population 
       @max_generation.times do
-        selected_to_breed = selection                #Evaluates current population 
-        offsprings = reproduction selected_to_breed  #Generate the population for this new generation
+        selected_to_breed = selection                #evaluates current population 
+        offsprings = reproduction selected_to_breed  #generate the population for this new generation
         replace_worst_ranked offsprings
       end
       return best_chromosome
@@ -68,26 +68,26 @@ module GeneticAlgorithm
     def generate_initial_population
      @population = []
      @population_size.times do
-       population << Chromosome.seed
+       population << chromosome.seed
      end
     end
     
-    # Select best-ranking individuals to reproduce
+    # select best-ranking individuals to reproduce
     # 
-    # Selection is the stage of a genetic algorithm in which individual 
+    # selection is the stage of a genetic algorithm in which individual 
     # genomes are chosen from a population for later breeding. 
-    # There are several generic selection algorithms, such as 
-    # tournament selection and roulette wheel selection. We implemented the
+    # there are several generic selection algorithms, such as 
+    # tournament selection and roulette wheel selection. we implemented the
     # latest.
     # 
-    # Steps:
+    # steps:
     # 
-    # 1. The fitness function is evaluated for each individual, providing fitness values
-    # 2. The population is sorted by descending fitness values.
-    # 3. The fitness values ar then normalized. (Highest fitness gets 1, lowest fitness gets 0). The normalized value is stored in the "normalized_fitness" attribute of the chromosomes.
-    # 4. A random number R is chosen. R is between 0 and the accumulated normalized value (all the normalized fitness values added togheter).
-    # 5. The selected individual is the first one whose accumulated normalized value (its is normalized value plus the normalized values of the chromosomes prior it) greater than R.
-    # 6. We repeat steps 4 and 5, 2/3 times the population size.    
+    # 1. the fitness function is evaluated for each individual, providing fitness values
+    # 2. the population is sorted by descending fitness values.
+    # 3. the fitness values ar then normalized. (highest fitness gets 1, lowest fitness gets 0). the normalized value is stored in the "normalized_fitness" attribute of the chromosomes.
+    # 4. a random number r is chosen. r is between 0 and the accumulated normalized value (all the normalized fitness values added togheter).
+    # 5. the selected individual is the first one whose accumulated normalized value (its is normalized value plus the normalized values of the chromosomes prior it) greater than r.
+    # 6. we repeat steps 4 and 5, 2/3 times the population size.    
     def selection
       @population.sort! { |a, b| b.fitness <=> a.fitness}
       best_fitness = @population[0].fitness
@@ -108,32 +108,32 @@ module GeneticAlgorithm
       selected_to_breed
     end
     
-    # We combine each pair of selected chromosome using the method 
-    # Chromosome.reproduce
+    # we combine each pair of selected chromosome using the method 
+    # chromosome.reproduce
     #
-    # The reproduction will also call the Chromosome.mutate method with 
-    # each member of the population. You should implement Chromosome.mutate
-    # to only change (mutate) randomly. E.g. You could effectivly change the
+    # the reproduction will also call the chromosome.mutate method with 
+    # each member of the population. you should implement chromosome.mutate
+    # to only change (mutate) randomly. e.g. you could effectivly change the
     # chromosome only if 
     #     rand < ((1 - chromosome.normalized_fitness) * 0.4)
     def reproduction(selected_to_breed)
       offsprings = []
       0.upto(selected_to_breed.length/2-1) do |i|
-        offsprings << Chromosome.reproduce(selected_to_breed[2*i], selected_to_breed[2*i+1])
+        offsprings << chromosome.reproduce(selected_to_breed[2*i], selected_to_breed[2*i+1])
       end
       @population.each do |individual|
-        Chromosome.mutate(individual)
+        chromosome.mutate(individual)
       end
       return offsprings
     end
     
-    # Replace worst ranked part of population with offspring
+    # replace worst ranked part of population with offspring
     def replace_worst_ranked(offsprings)
       size = offsprings.length
       @population = @population [0..((-1*size)-1)] + offsprings
     end
     
-    # Select the best chromosome in the population
+    # select the best chromosome in the population
     def best_chromosome
       the_best = @population[0]
       @population.each do |chromosome|
@@ -153,12 +153,11 @@ module GeneticAlgorithm
     end
      
   end
-  
-  # A Chromosome is a representation of an individual solutions for a specific 
-  # problem. You will have to redifine you Chromosome representation for each
-  # particular problem, along with its fitness, mutate, reproduce, and seed 
-  # functions.
-  class Chromosome
+
+  # A ParamChromosome describes one of the parameters of an oscillator (with one entry
+  # for each oscillator in the network). This could be natural phase, amplitude, or frequency.
+  # Therefore the number of data in the chromosome should be the number of oscillators in the network.  # This chromosome class does use crossover as it makes more sense for this data set. 
+  class ParamChromosome
     
     attr_accessor :data
     attr_accessor :normalized_fitness
@@ -170,45 +169,27 @@ module GeneticAlgorithm
     # The fitness function quantifies the optimality of a solution 
     # (that is, a chromosome) in a genetic algorithm so that that particular 
     # chromosome may be ranked against all the other chromosomes. 
-    # 
-    # Optimal chromosomes, or at least chromosomes which are more optimal, 
-    # are allowed to breed and mix their datasets by any of several techniques, 
-    # producing a new generation that will (hopefully) be even better.
+    # In this case, the fitness function is essentially feeding the parameters into
+    # the network simulation and measuring the error compared to the desired output. 
     def fitness
       return @fitness if @fitness
-      last_token = @data[0]
-      cost = 0
-      @data[1..-1].each do |token|
-        cost += @@costs[last_token][token]
-        last_token = token
-      end
-      @fitness = -1 * cost
+      #TODO
       return @fitness
     end
 
-    # mutation is a function used to maintain genetic diversity from one 
-    # generation of a population of chromosomes to the next. It is analogous 
-    # to biological mutation. 
-    # 
-    # The purpose of mutation in GAs is to allow the 
-    # algorithm to avoid local minima by preventing the population of 
-    # chromosomes from becoming too similar to each other, thus slowing or even 
-    # stopping evolution.
-    # 
-    # Calling the mutate function will "probably" slightly change a chromosome
-    # randomly. 
-    #
-    # This implementation of "mutation" will (probably) reverse the 
-    # order of 2 consecutive randome nodes 
-    # (e.g. from [ 0, 1, 2, 4] to [0, 2, 1, 4]) if:
-    #     ((1 - chromosome.normalized_fitness) * 0.4)
+    # For ParamChromosomes, mutation means random, small noise added with some chance to
+    # any given parameter in the chromosome to maintain genetic diversity. Because the
+    # parameters are normalized in the GA, the noise added definitely needs to be in (-1,1)
+    # but should be quite small. This will perturb the system to avoid minima. 
     def self.mutate(chromosome)
-      if chromosome.normalized_fitness && rand < ((1 - chromosome.normalized_fitness) * 0.3)
+      data = chromosome.data
+      0.upto(data.length-1)
         data = chromosome.data
-        index = rand(data.length-1)
-        data[index], data[index+1] = data[index+1], data[index]
-        chromosome.data = data
-        @fitness = nil
+        if chromosome.normalized_fitness && rand < ((1 - chromosome.normalized_fitness) * 0.3)
+          data[index] += rand(0.25)-0.125
+          chromosome.data = data
+          @fitness = nil
+        end
       end
     end
     
@@ -220,6 +201,7 @@ module GeneticAlgorithm
     # The method is usually dependant of the problem domain.
     # In this case, we have implemented edge recombination, wich is the 
     # most used reproduction algorithm for the Travelling salesman problem.
+    # TODO see if this is suitable for this purpose...
     def self.reproduce(a, b)
       data_size = @@costs[0].length
       available = []
@@ -242,7 +224,70 @@ module GeneticAlgorithm
         spawn << next_token
         a, b = b, a if rand < 0.4
       end
-      return Chromosome.new(spawn)
+      return ParamChromosome.new(spawn)
+    end
+    
+    # Initializes an individual solution (chromosome) for the initial 
+    # population. Generates random numbers in [0,1) for each parameter. 
+    def self.seed
+      data_size = @@costs[0].length # need other way to get data size...
+      0.upto(data_size-1) 
+        seed << rand(1)
+      end 
+      return ParamChromosome.new(seed)
+    end
+
+    def self.set_cost_matrix(costs)
+      @@costs = costs
+    end
+  end
+
+  #A WeightChromosome relates to the weights between the nodes in the network. This can be
+  # best expressed as a matrix of connections, where 0 represents no connection and anything
+  # else represents the weight, where the ijth element designates a connection between node i and j.
+  # There should be no crossover here as it doesn't make sense; mutation only.
+  class WeightChromosome
+    
+    attr_accessor :data
+    attr_accessor :normalized_fitness
+    
+    def initialize(data)
+      @data = data
+    end
+    
+    # Should be essentialy same as fitness function for ParamChromosome
+    def fitness
+      return @fitness if @fitness
+      #TODO
+      return @fitness
+    end
+
+    # Random noise added to weights, but this time only to nonzero weights. Zero weights represent
+    # lack of any connection and should be left alone completely. We are only evolving the non-
+    # zero weights.    
+    def self.mutate(chromosome)
+      if chromosome.normalized_fitness && rand < ((1 - chromosome.normalized_fitness) * 0.3)
+        #TODO
+        chromosome.data = data
+        @fitness = nil
+      end
+    end
+    
+    # Reproduction here involves no crossover, simply duplication. 
+    def self.reproduce(a, b)
+      data_size = @@costs[0].length
+      available = []
+      0.upto(data_size-1) { |n| available << n }
+      token = a.data[0]
+      spawn = [token]
+      available.delete(token)
+      while available.length > 0 do 
+        #Add to spawn
+        token = next_token
+        available.delete(token)
+        spawn << next_token
+      end
+      return WeightChromosome.new(spawn)
     end
     
     # Initializes an individual solution (chromosome) for the initial 
@@ -264,5 +309,4 @@ module GeneticAlgorithm
       @@costs = costs
     end
   end
-  
-end
+
