@@ -1,22 +1,15 @@
-# 
-# The GeneticAlgorithm module implements the GeneticSearch and Chromosome 
-# classes. The GeneticSearch is a generic class, and can be used to solved 
+# The OscillatorGeneticAlgorithm module implements the GeneticSearch, ParamChromosome, 
+# and WeightChromosome classes. The GeneticSearch is a generic class, and can be used to solved 
 # any kind of problems. The GeneticSearch class performs a stochastic search 
 # of the solution of a given problem.
 # 
-# The Chromosome is "problem specific". Ai4r built-in Chromosomeclass was 
-# designed to model the Travelling salesman problem. If you want to solve other 
-# type of problem, you will have to modify the Chromosome class, by overwriting 
-# its fitness, reproduce, and mutate functions, to model you specific problem.
+# The chromosome is "problem specific". For the oscillator neural network, there are
+# two types of chromosomes: WeightChromosome keeps track of connection weights and 
+# modifies them to train the network, and ParamChromosome keeps track of one of the
+# parameters of the wave equation (amplitude, phase, or frequency) and adjusts these
+# to train the network.
 # 
-# Author::    Sergio Fierens
-# License::   MPL 1.1
-# Project::   ai4r
-# Url::       http://ai4r.rubyforge.org/
-#
-# You can redistribute it and/or modify it under the terms of 
-# the Mozilla Public License version 1.1  as published by the 
-# Mozilla Foundation at http://www.mozilla.org/MPL/MPL-1.1.txt
+# Based upon the genetic algorithm in the ai4r library.
 
 module OscillatorGeneticAlgorithm
   
@@ -25,34 +18,23 @@ module OscillatorGeneticAlgorithm
   #     1. Choose initial population
   #     2. Evaluate the fitness of each individual in the population
   #     3. Repeat
-  #           1. Select best-ranking individuals to reproduce
-  #           2. Breed new generation through crossover and mutation (genetic operations) and give birth to offspring
+  #           1. Select best-ranking individuals to reproduce (depending on chromosome type)
+  #           2. Breed new generation through crossover and mutation (genetic operations) 
+  #              and give birth to offspring (depending on chromosome type)
   #           3. Evaluate the individual fitnesses of the offspring
   #           4. Replace worst ranked part of population with offspring
   #     4. Until termination
-  #
-  #   If you want to customize the algorithm, you must modify any of the following classes:
-  #     - Chromosome
-  #     - Population
   class GeneticSearch
     
     attr_accessor :population
-      
+    # TODO see where chromosome initialization comes from, how to set it...  
     def initialize(initial_population_size, generations)
       @population_size = initial_population_size
       @max_generation = generations
       @generation = 0
     end
     
-    #     1. Choose initial population
-    #     2. Evaluate the fitness of each individual in the population
-    #     3. Repeat
-    #           1. Select best-ranking individuals to reproduce
-    #           2. Breed new generation through crossover and mutation (genetic operations) and give birth to offspring
-    #           3. Evaluate the individual fitnesses of the offspring
-    #           4. replace worst ranked part of population with offspring
-    #     4. until termination    
-    #     5. return the best chromosome
+    # Runs the genetic algorithm as described above, then returns the best chromosome
     def run
       generate_initial_population                    #generate initial population 
       @max_generation.times do
@@ -62,7 +44,6 @@ module OscillatorGeneticAlgorithm
       end
       return best_chromosome
     end
-    
     
     def generate_initial_population
      @population = []
@@ -83,9 +64,12 @@ module OscillatorGeneticAlgorithm
     # 
     # 1. the fitness function is evaluated for each individual, providing fitness values
     # 2. the population is sorted by descending fitness values.
-    # 3. the fitness values ar then normalized. (highest fitness gets 1, lowest fitness gets 0). the normalized value is stored in the "normalized_fitness" attribute of the chromosomes.
-    # 4. a random number r is chosen. r is between 0 and the accumulated normalized value (all the normalized fitness values added togheter).
-    # 5. the selected individual is the first one whose accumulated normalized value (its is normalized value plus the normalized values of the chromosomes prior it) greater than r.
+    # 3. the fitness values ar then normalized. (highest fitness gets 1, lowest fitness gets 0). 
+    #    the normalized value is stored in the "normalized_fitness" attribute of the chromosomes.
+    # 4. a random number r is chosen. r is between 0 and the accumulated normalized value 
+    #    (all the normalized fitness values added togheter).
+    # 5. the selected individual is the first one whose accumulated normalized value 
+    #    (its is normalized value plus the normalized values of the chromosomes prior it) greater than r.
     # 6. we repeat steps 4 and 5, 2/3 times the population size.    
     def selection
       @population.sort! { |a, b| b.fitness <=> a.fitness}
@@ -156,8 +140,7 @@ module OscillatorGeneticAlgorithm
 
   # A ParamChromosome describes one of the parameters of an oscillator (with one entry
   # for each oscillator in the network). This could be natural phase, amplitude, or frequency.
-  # Therefore the number of data in the chromosome should be the number of oscillators in the network.
-  # This chromosome class does use crossover as it makes more sense for this data set. 
+  # Thus the number of data in the chromosome should be the number of oscillators in the network.
   class ParamChromosome
     
     attr_accessor :data
@@ -243,10 +226,10 @@ module OscillatorGeneticAlgorithm
     end
   end
 
-  #A WeightChromosome relates to the weights between the nodes in the network. This can be
+  # A WeightChromosome relates to the weights between the nodes in the network. This can be
   # best expressed as a matrix of connections, where 0 represents no connection and anything
   # else represents the weight, where the ijth element designates a connection between node i and j.
-  # There should be no crossover here as it doesn't make sense; mutation only.
+  # There should be no crossover here as it doesn't make sense for this type of net; mutation only.
   class WeightChromosome
     
     attr_accessor :data
