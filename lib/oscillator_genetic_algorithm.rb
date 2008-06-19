@@ -1,13 +1,11 @@
-# The OscillatorGeneticAlgorithm module implements the GeneticSearch, ParamChromosome, 
+# The OscillatorGeneticAlgorithm module implements the GeneticSearch  
 # and WeightChromosome classes. The GeneticSearch is a generic class, and can be used to solved 
 # any kind of problems. The GeneticSearch class performs a stochastic search 
 # of the solution of a given problem.
 # 
 # The chromosome is "problem specific". For the oscillator neural network, there are
 # two types of chromosomes: WeightChromosome keeps track of connection weights and 
-# modifies them to train the network, and ParamChromosome keeps track of one of the
-# parameters of the wave equation (amplitude, phase, or frequency) and adjusts these
-# to train the network.
+# modifies them to train the network.
 # 
 # Based upon the genetic algorithm in the ai4r library.
 

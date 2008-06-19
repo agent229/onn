@@ -16,31 +16,22 @@ module OscillatorNeuralNetwork
     #                to a weighted connection from node i to node j
     #   states: an nx3 Matrix of the natural amplitudes, frequencies, and phases  of the neurons, 
     #           where the row index identifies the node and the column an attribute
-    def initialize(connections, states)
-      @neurons = []
-      @connections = connections
-
-      # Iterate through the rows of states and create a new neuron for each state
-      states.size1.times do |neuron_index|
-        @neurons << OscillatorNeuron.new(states[neuron_index]) 
-      end
-      @neurons.reverse!
+    def initialize(connections, hidden_states, input_states, output_states)
+      @connections = connections.duplicate
+      @hidden_states = hidden_states.duplicate
+      @input_states = input_states.duplicate
+      @output_states = output_states.duplicate
     end
 
     # Evaluates the input. When there are n input nodes, the input_state is an nx3 matrix, where the rows
     # correspond to nodes and the columns to amplitude, frequency, and phase (in that order).
     def eval(input_state)
+      # Set new input states
+      @input_states = input_state.duplicate
 
-      # Present input, propagate from input nodes
-      input_state.size1 times do |input_index|
-        @neurons[input_index].propagate(input_state[input_index])
-      end
-      # TODO how will propagate know which nodes we are talking about. should neurons know their connections?...?
-
-      #Propagate through the rest
-      output = []
+      # Propagate through the rest
       # TODO write propagation using connections matrix... 
-      return output
+      return @output
 
     end
 
@@ -53,46 +44,12 @@ module OscillatorNeuralNetwork
     # the difference between real output and the expected output)
     def train(input, output)
       # This entire thing just needs to call the genetic algorithm for training..... TODO
-      
+      # GA then calls the eval method to obtain its results, weight the fitness, etc. 
       # Return net error by propagating thru with result of GA
+      # Return of GA will be the network.
+      # Different train methods?? (trainWeights, trainAmps....) or is it possible to just modify that some other way
     end
     
   end
-  
-  
-  class OscillatorNeuron
-    
-    attr_accessor :error
-    attr_accessor :expected_output
-    attr_accessor :last_state
-    attr_accessor :state
-   
-   # Initializes a new neuron with the given initial_state, which should be a Vector containing
-   # in order, [amplitude, frequency, phase]
-    def initialize(initial_state)
-      # Instance state
-      @error = nil
-      @last_state = nil 
-      @state = initial_state 
-    end
-   
-    # TODO figure out what this is?
-    def push(x)
-      @pushed += x
-    end
-    
-    def propagate(input = nil)
-      # TODO write propagation!
-    end
-    
-    def calc_error
-      # TODO write error calculation
-    end
-    
-    def change_weights
-      # TODO write change weights (also depends on the type of evolution...)
-    end
 
-  end
-  
 end
