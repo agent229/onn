@@ -10,18 +10,10 @@
 # Based upon the genetic algorithm in the ai4r library.
 
 module OscillatorGeneticAlgorithm
-  
-  #   This class is used to automatically:
-  #   
-  #     1. Choose initial population
-  #     2. Evaluate the fitness of each individual in the population
-  #     3. Repeat
-  #           1. Select best-ranking individuals to reproduce (depending on chromosome type)
-  #           2. Breed new generation through crossover and mutation (genetic operations) 
-  #              and give birth to offspring (depending on chromosome type)
-  #           3. Evaluate the individual fitnesses of the offspring
-  #           4. Replace worst ranked part of population with offspring
-  #     4. Until termination
+ 
+  require("rbgsl") # For matrices
+
+  #  This class is used to run a genetic algorithm search of solutions for an ONN
   class GeneticSearch
    
     attr_accessor :population
@@ -32,22 +24,34 @@ module OscillatorGeneticAlgorithm
     #   seed: a random number seed for this entire run, for repeatability reasons
     #   chrom_size: describes the size of any given chromosome
     def initialize(initial_population_size, generations, chrom_size, seed)
-      # Seed random number gen, initialize fields
-      srand(seed)                       
-      @population_size = initial_population_size
+      srand(seed)                                # Seed random number generator once for this simulation                       
+      
+      # Initialize fields
+      @population_size = initial_population_size 
       @max_generation = generations
       @generation = 0
       @chrom_size = chrom_size
     end
     
-    # Runs the genetic algorithm as described above, returning the best chromosome on completion
+    # Runs the genetic algorithm, returning the best chromosome on completion
+    #   1. Choose initial population
+    #   2. Evaluate the fitness of each individual in the population
+    #   3. Repeat
+    #     1. Select best-ranking individuals to reproduce (depending on chromosome type)
+    #     2. Breed new generation through crossover and mutation (genetic operations) 
+    #        and give birth to offspring (depending on chromosome type)
+    #     3. Evaluate the individual fitnesses of the offspring
+    #     4. Replace worst ranked part of population with offspring
+    #   4. Until termination
     def run
       generate_initial_population                     # generate initial population 
+
       @max_generation.times do
         selected_to_breed = selection                 # evaluate current population 
         offsprings = reproduction(selected_to_breed)  # generate the population for this new generation
         replace_worst_ranked(offsprings)              # replace the worst members
       end
+
       return best_chromosome
     end
    
@@ -55,7 +59,7 @@ module OscillatorGeneticAlgorithm
     def generate_initial_population
      @population = []
      @population_size.times do
-       chromosome = WeightChromosome.new(@chrom_size) # For now, just a WeightChromosome
+       chromosome = WeightChromosome.new(@chrom_size) # For now, just a WeightChromosome TODO un-hard-code
        population << chromosome.seed                  # Uniformly distributed values
      end
     end
@@ -200,10 +204,6 @@ module OscillatorGeneticAlgorithm
       end
     end
 
-    # TODO want to use this? how would i set cost matrix?
-    def self.set_cost_matrix(costs)
-      @@costs = costs
-    end
   end
 end
 
