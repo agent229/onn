@@ -23,14 +23,14 @@ module OscillatorGeneticAlgorithm
     #   generations: the number of generations to evolve
     #   seed: a random number seed for this entire run, for repeatability reasons
     #   chrom_size: describes the size of any given chromosome
-    def initialize(initial_population_size, generations, chrom_size, seed)
+    def initialize(data = nil, initial_population_size, generations, chrom_size, seed)
       srand(seed)                                # Seed random number generator once for this simulation                       
-      
       # Initialize fields
       @population_size = initial_population_size 
       @max_generation = generations
       @generation = 0
       @chrom_size = chrom_size
+      if data @population << data
     end
     
     # Runs the genetic algorithm, returning the best chromosome on completion
@@ -57,8 +57,13 @@ module OscillatorGeneticAlgorithm
    
     # Generates the initial population of chromosomes according to that chromosome's seed method
     def generate_initial_population
-     @population = []
-     @population_size.times do
+     if @population == nil
+       @population = [] 
+       to_gen = @population_size
+     else
+       to_gen = @population_size - 1
+     end
+     to_gen.times do
        chromosome = WeightChromosome.new(@chrom_size) # For now, just a WeightChromosome TODO un-hard-code
        population << chromosome.seed                  # Uniformly distributed values
      end
@@ -157,9 +162,13 @@ module OscillatorGeneticAlgorithm
     attr_accessor :size
    
     # Data will be a size x size  matrix, where size is the number of nodes
-    def initialize(size)
+    def initialize(size, data = nil)
       @size = size 
-      @data = GSL::Matrix.alloc(@size) # Allocate an empty matrix for this set of weights
+      if data
+        @data = data
+      else
+        @data = GSL::Matrix.alloc(@size) # Allocate an empty matrix for this set of weights
+      end
     end
     
     def fitness
