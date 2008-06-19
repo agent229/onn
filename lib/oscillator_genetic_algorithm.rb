@@ -4,7 +4,7 @@
 # of the solution of a given problem.
 # 
 # The chromosome is "problem specific". For the oscillator neural network, there are
-# two types of chromosomes: WeightChromosome keeps track of connection weights and 
+# different types of possible chromosomes: WeightChromosome keeps track of connection weights and 
 # modifies them to train the network.
 # 
 # Based upon the genetic algorithm in the ai4r library.
@@ -12,25 +12,31 @@
 module OscillatorGeneticAlgorithm
  
   require("rbgsl") # For matrices
+  require 'onn'
+  include OscillatorNeuralNetwork # For manipulation of Network objects
 
   #  This class is used to run a genetic algorithm search of solutions for an ONN
   class GeneticSearch
    
     attr_accessor :population
 
-    # Creates new GeneticSearch
+    # Creates new GeneticSearch with the given information
+    #   network: a GeneticAlgorithmONN object initialized as desired
     #   initial_population_size: the size of the population to evolve
     #   generations: the number of generations to evolve
     #   seed: a random number seed for this entire run, for repeatability reasons
     #   chrom_size: describes the size of any given chromosome
-    def initialize(data = nil, initial_population_size, generations, chrom_size, seed)
-      srand(seed)                                # Seed random number generator once for this simulation                       
+    #   params: a hash describing certain options (TODO design the params options/order)
+    def initialize(network, initial_population_size, generations, chrom_size, seed, params)
+      # Seed random number generator once for this run
+      srand(seed)                                                       
       # Initialize fields
+      @network = network
       @population_size = initial_population_size 
       @max_generation = generations
       @generation = 0
       @chrom_size = chrom_size
-      if data @population << data
+      # TODO deal with params
     end
     
     # Runs the genetic algorithm, returning the best chromosome on completion
@@ -55,18 +61,9 @@ module OscillatorGeneticAlgorithm
       return best_chromosome
     end
    
-    # Generates the initial population of chromosomes according to that chromosome's seed method
+    # Generates the initial population of chromosomes (uniformly distributed values) 
     def generate_initial_population
-     if @population == nil
-       @population = [] 
-       to_gen = @population_size
-     else
-       to_gen = @population_size - 1
-     end
-     to_gen.times do
-       chromosome = WeightChromosome.new(@chrom_size) # For now, just a WeightChromosome TODO un-hard-code
-       population << chromosome.seed                  # Uniformly distributed values
-     end
+      # TODO write general intialization logic (different types of chromosomes?)
     end
     
     # Selection is the stage of a genetic algorithm in which individual 
@@ -86,6 +83,7 @@ module OscillatorGeneticAlgorithm
     #    (its is normalized value plus the normalized values of the chromosomes prior it) greater than r.
     # 6. we repeat steps 4 and 5, 2/3 times the population size.    
     def selection
+      #TODO deal with this....
       @population.sort! { |a, b| b.fitness <=> a.fitness}
       best_fitness = @population[0].fitness
       worst_fitness = @population.last.fitness
@@ -114,6 +112,7 @@ module OscillatorGeneticAlgorithm
     # chromosome only if 
     #     rand < ((1 - chromosome.normalized_fitness) * 0.4)
     def reproduction(selected_to_breed)
+      # TODO deal with this...
       offsprings = []
       0.upto(selected_to_breed.length/2-1) do |i|
         offsprings << chromosome.reproduce(selected_to_breed[2*i], selected_to_breed[2*i+1])
@@ -150,7 +149,7 @@ module OscillatorGeneticAlgorithm
     end
   end
 
-  # A WeightChromosome relates to the weights between the nodes in the network. This can be
+  # A WeightChromosome describes the weights between the nodes in the network. This can be
   # best expressed as a matrix of connections, where 0 represents no connection and anything
   # else represents the weight, where the ijth element designates a connection between node i and j.
   # There should be no crossover here as it doesn't make sense for this type of net; mutation only.
