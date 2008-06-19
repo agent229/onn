@@ -1,3 +1,6 @@
+# GENERAL TODO: modify everything to use the new node objects, hashes, etc. create methods to automate the conversions
+# from matrices to these objects and hashes
+
 module OscillatorNeuralNetwork
   
   # This is an implementation of oscillator neural networks which uses a genetic
@@ -19,22 +22,25 @@ module OscillatorNeuralNetwork
     # Initializes an ONN of n nodes with any structure and coupled universal oscillators. 
     #   connections: an nxn, weighted connections Matrix (entry range: 0-1) where the ijth weight corresponds
     #                to a weighted, asymmetric connection from node i to node j
-    #   input_states: a Matrix of the natural properties of the input nodes 
-    #   hidden_states: a Matrix of the natural properties of the hidden nodes 
-    #   output_states: a Matrix of the natural properties of the output nodes 
-    def initialize(connections, input_states, hidden_states, output_states)
+    #   states: a Matrix of the natural properties of the nodes, ordered in the same way as the
+    #           connections matrix, with the same row indices, data in columns
+    def initialize(connections, states)
     
-      # Copy input data into the private fields
-      @connections = connections.duplicate
-      @hidden_states = hidden_states.duplicate
-      @input_states = input_states.duplicate
-      @output_states = output_states.duplicate
+      # Create the network, which is going to be an indexed list of OscillatorNeuron objects
+      @nodes = []
+      0.upto(states.size1) do |index|
+        # TODO create nstate hash from the states matrix somehow
+        @nodes << OscillatorNeuron.new(index, nstate) 
+      end
 
-      # Store the number of nodes in each category
-      @num_inputs = @input_states.size1
-      @num_hidden = @hidden_states.size1
-      @num_outputs = @output_states.size1
-      @num_nodes = @num_inputs + @num_hidden + @num_outputs
+      # Now that the network is created, go through and update the connections TODO
+      0.upto(connections.size1) do |row|
+        0.upto(connections.size1) do |col|
+          if connections[row,col] != 0
+            # TODO convert into connection, store in appropriate node
+          end
+        end
+     end
 
     end
 
@@ -43,16 +49,11 @@ module OscillatorNeuralNetwork
     def eval(input_state)
 
       # Set new input states
-      @input_states = input_state.duplicate
-
-      # Traverse connections matrix
-      0.upto(@num_nodes-1) do |driver|
-        0.upto(@num_nodes-1) do |reciever|
-          if(reciever!=0.0)
-           # TODO drive the signal through to recievers.... need to figure out, how do i do this? 
-          end
-        end
+      0.upto(input_state.size1) do |index|
+        @nodes[index].state = #TODO make a "create hash from state data" method to call here and above 
       end
+
+      # Traverse network and drive oscillations and calculate output TODO 
 
       # Return the calculated output
       return @output
@@ -72,13 +73,44 @@ module OscillatorNeuralNetwork
       # Different train methods?? (trainWeights, trainAmps....) or is it possible to just modify that some other way
       pop_size = 10;
       gens = 10;
-      chrom_size = @connections.size1
       seed = 1
-      ga = GeneticSearch.new(self, pop_size, gens, chrom_size, seed)
-      self = ga.run 
+      ga = GeneticSearch.new(@nodes, pop_size, gens, seed, params)
+      @nodes = ga.run
       eval(@input_states)
     end
     
+  end
+
+  # This class keeps track of the state of a single OscillatorNeuron. Each neuron knows everything about
+  # its own current state and connections (both inbound and outbound connections).
+  class OscillatorNeuron
+
+    attr_accessor :in_conns # A list of exiting OscillatorNeuron objects which point here hashed with conn weights
+    attr_accessor :out_conns # A list of exiting OscillatorNeuron objects which this points at hashed with conn weights
+    attr_accessor :state # State will likely be a hash, containing all variables and a type (input, hidden, output)?
+
+    # Initialize a new OscillatorNeuron by passing a state hash.
+    #  state: a has describing all of the state variables (TBD contents.... TODO)
+    #  index: the node's original index from the connections/state matrices
+    def initialize(index,state)
+      @index = index
+      @state = state
+      @in_conns = Hash.new 
+      @out_conns = Hash.new 
+    end
+
+    # Instantiates the list of inbound connections
+    def set_in_conns(in_conns)
+      #TODO FIX
+      @in_conns = in_conns
+    end
+
+    # Adds an outbound connection to the list
+    def add_out_conn(out_conn)
+      # TODO FIXME to use hash
+      @out_conns << out_conn
+    end
+
   end
 
 end

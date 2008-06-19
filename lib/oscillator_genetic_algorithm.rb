@@ -1,3 +1,5 @@
+# General TODO: adapt to fit with new structure of ONN class...
+
 # The OscillatorGeneticAlgorithm module implements the GeneticSearch  
 # and WeightChromosome classes. The GeneticSearch is a generic class, and can be used to solved 
 # any kind of problems. The GeneticSearch class performs a stochastic search 
