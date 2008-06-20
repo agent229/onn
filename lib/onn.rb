@@ -55,11 +55,11 @@ module OscillatorNeuralNetwork
     #  connections: the 2D (nested) array of weighted connections
     def update_connections(connections)
       connections.each_index { |row_index|
-        row.each_index { |col_index|
+        connections[row_index].each_index { |col_index|
           this_conn = connections[row_index][col_index]
           if this_conn != 0.0
             @nodes[row_index].out_conns[@nodes[col_index]] = this_conn 
-            @nodes[col].in_conns[@nodes[row]] = this_conn 
+            @nodes[col_index].in_conns[@nodes[row_index]] = this_conn 
           end
         }
       } 
@@ -71,9 +71,7 @@ module OscillatorNeuralNetwork
     def eval(input_state)
 
       # Set new input states
-      0.upto(input_state.length) do |index|
-        @nodes[index].state = Hash.create(@state_names,input_state[index])  
-      end
+      input_state.each_index { |index| @nodes[index].state = Hash.create(@state_names,input_state[index]) }
 
       # Traverse network and drive oscillations and calculate output TODO 
 
@@ -90,10 +88,9 @@ module OscillatorNeuralNetwork
     #   seed: a PRNG seed governing all PRNG uses in this run (for repeatability)
     #
     # Returns: the difference between real output and the expected output
-    def train(input, output, pop_size, gens, seed)
+    def train(input, output, pop_size, gens, seed, params)
       # This entire thing just needs to call the genetic algorithm for training..... TODO
       # Determine structure of params TODO
-      params = Hash.new 
       ga = GeneticSearch.new(@nodes, pop_size, gens, seed, params)
       @nodes = ga.run
       eval(@input_states)
