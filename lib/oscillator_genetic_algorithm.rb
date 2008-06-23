@@ -1,26 +1,23 @@
-# General TODO: adapt to fit with new structure of ONN class...
-
 # The OscillatorGeneticAlgorithm module implements the GeneticSearch  
-# and WeightChromosome classes. The GeneticSearch is a generic class, and can be used to solved 
+# and Chromosome classes. The GeneticSearch is a generic class, and can be used to solved 
 # any kind of problems. The GeneticSearch class performs a stochastic search 
 # of the solution of a given problem.
 # 
-# The chromosome is "problem specific". For the oscillator neural network, there are
-# different types of possible chromosomes: WeightChromosome keeps track of connection weights and 
-# modifies them to train the network.
+# The chromosome is "problem specific" and allows the algorithm to make adjustments
+# specific to neural networks of oscillators.
 # 
 # Based upon the genetic algorithm in the ai4r library.
 
 module OscillatorGeneticAlgorithm
  
-  require("rbgsl") # For matrices
-  require 'onn'
-  include OscillatorNeuralNetwork # For manipulation of Network objects
+  require 'onn'                   # For network
+  import OscillatorNeuralNetwork 
 
   #  This class is used to run a genetic algorithm search of solutions for an ONN
   class GeneticSearch
    
     attr_accessor :population
+    ModifiableProperties = [:natural_freq, :natural_phase, :natural_amp, :weight]
 
     # Creates new GeneticSearch with the given information
     #   network: a GeneticAlgorithmONN object initialized as desired
@@ -28,7 +25,7 @@ module OscillatorGeneticAlgorithm
     #   generations: the number of generations to evolve
     #   seed: a random number seed for this entire run, for repeatability reasons
     #   chrom_size: describes the size of any given chromosome
-    #   params: a hash describing certain options (TODO design the params options/order)
+    #   params: a hash describing which things will be adjusted by the GA 
     def initialize(network, initial_population_size, generations, chrom_size, seed, params)
       # Seed random number generator once for this run
       srand(seed)                                                       
@@ -66,6 +63,7 @@ module OscillatorGeneticAlgorithm
     # Generates the initial population of chromosomes (uniformly distributed values) 
     def generate_initial_population
       # TODO write general intialization logic (different types of chromosomes?)
+      # depends on params argument what the "population" will be!
     end
     
     # Selection is the stage of a genetic algorithm in which individual 
@@ -85,7 +83,7 @@ module OscillatorGeneticAlgorithm
     #    (its is normalized value plus the normalized values of the chromosomes prior it) greater than r.
     # 6. we repeat steps 4 and 5, 2/3 times the population size.    
     def selection
-      #TODO deal with this....
+      #TODO deal with this.... look through, make sure its ok
       @population.sort! { |a, b| b.fitness <=> a.fitness}
       best_fitness = @population[0].fitness
       worst_fitness = @population.last.fitness
@@ -151,12 +149,9 @@ module OscillatorGeneticAlgorithm
     end
   end
 
-  # A WeightChromosome describes the weights between the nodes in the network. This can be
-  # best expressed as a matrix of connections, where 0 represents no connection and anything
-  # else represents the weight, where the ijth element designates a connection between node i and j.
-  # There should be no crossover here as it doesn't make sense for this type of net; mutation only.
-  # In this case, all connections are free game for mutation.... should probably be changed eventually
-  class WeightChromosome
+  # A Chromosome describes the the entire network. The parts of the network that are actually
+  # evolved may vary through use of the params hash to initialize the GA.
+  class Chromosome
     
     attr_accessor :data
     attr_accessor :normalized_fitness
@@ -195,7 +190,7 @@ module OscillatorGeneticAlgorithm
     
     # Reproduction here involves no crossover, simply duplication. 
     def self.reproduce(a, b)
-      offspring = WeightChromosome.new(a.size)
+      offspring = Chromosome.new(a.size)
       0.upto(a.size) do |row|
         0.upto(a.size) do |col|
           offspring.data[row,col]=a.data[row,col]
