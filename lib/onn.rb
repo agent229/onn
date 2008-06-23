@@ -25,7 +25,7 @@ module OscillatorNeuralNetwork
 
   # Network class definition
   class GeneticAlgorithmONN 
-
+    
     attr_accessor :nodes
 
     # Initializes an ONN of n nodes with any structure and coupled universal oscillators. 
@@ -48,9 +48,8 @@ module OscillatorNeuralNetwork
       # Put nodes back in correct index order
       @nodes.reverse!
 
-      # Now that the network is created, go through and update the connections 
+      # Now that the network is created, go through and instantiate the connections 
       update_connections(connections)
-
     end
 
     # Updates the connections between nodes based on the connections matrix
@@ -62,7 +61,7 @@ module OscillatorNeuralNetwork
           connections[row_index].each_index 
             { |col_index|
               this_conn = connections[row_index][col_index]
-                if this_conn != 0.0
+                if this_conn != 0.0 # Check on accuracy of this comparison
                   @nodes[row_index].out_conns[@nodes[col_index]] = this_conn 
                   @nodes[col_index].in_conns[@nodes[row_index]] = this_conn 
                 end
@@ -79,7 +78,14 @@ module OscillatorNeuralNetwork
       change_input(input_state)
 
       # Traverse network and drive oscillations and calculate output TODO 
-      #1. 
+      # 1. Starting with inputs,
+      #   2. Send the input's data to each of it's out_conns,
+      #     3. In the recieving node, keep sum of incoming connection contributions to sum
+      #   4. Once data sent to all out_conns, move to those nodes.
+      #     5. Make sure all incoming data is recieved from all in_conns,
+      #     6. Finish summing and calculate the new state. store in @next_state
+      #   7. Repeat, starting sending data to all out_conns... etc. until all done
+      # 8. Update the states simultaneously
 
       # Return the calculated output
       return @output
@@ -102,17 +108,17 @@ module OscillatorNeuralNetwork
     #
     # Returns: the difference between real output and the expected output
     def train(input, output, pop_size, gens, seed, params)
-      # This entire thing just needs to call the genetic algorithm for training..... TODO
       change_input(input)
       ga = GeneticSearch.new(self, pop_size, gens, seed, params)
-      self = ga.run
+      best = ga.run
       eval(@input_states)
+      # TODO calculate/return weighted error
     end
     
   end
 
   # This class keeps track of the state of a single OscillatorNeuron. Each neuron knows everything about
-  # its own natural state, current state, and inbound/outbound connections.
+  # its own natural state, current state, next state, and inbound/outbound connections.
   class OscillatorNeuron
 
     attr_accessor :in_conns # A list of existing OscillatorNeuron objects which point here hashed with conn weights
@@ -120,12 +126,13 @@ module OscillatorNeuralNetwork
     attr_accessor :curr_state # State is a hash, containing all information (besides connections)
     attr_accessor :next_state # State is a hash, containing all information (besides connections)
 
-    # Initialize a new OscillatorNeuron by passing a state hash.
-    #  state: a hash describing all of the state variables 
-    def initialize(state)
-      @curr_state = state
+    # Initialize a new OscillatorNeuron by passing natural state hash.
+    #  natural_state: a hash describing all of the "natural" state variables 
+    def initialize(natural_state)
+      @curr_state = natural_state
+      @natural_state = natural_state
       @in_conns = Hash.new 
-      @out_conns = Hash.new 
+      @out_conns = Hash.new
       @next_state = nil
     end
 
@@ -134,6 +141,13 @@ module OscillatorNeuralNetwork
       if @next_state
         @curr_state = @next_state
         @next_state = nil
+      end
+    end
+
+    # Resets the current state to the "natural" state
+    def reset_state
+      if @natural_state
+        @current_state = @natural_state
       end
     end
 
