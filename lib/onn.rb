@@ -102,7 +102,6 @@ module OscillatorNeuralNetwork
     # Resets the input states
     def change_input(new_input)
       new_input.each_index { |index| 
-        @nodes[index].next_state = Hash.create(@state_names,new_input[index]) 
         @nodes[index].curr_state = Hash.create(@state_names,new_input[index]) 
       }
     end
@@ -130,7 +129,7 @@ module OscillatorNeuralNetwork
 
     # Error weighting function
     def weighted_error
-      # TODO
+      # TODO define weighted error
     end
 
   end
@@ -152,14 +151,16 @@ module OscillatorNeuralNetwork
       @in_conns = Hash.new 
       @out_conns = Hash.new
       @next_state = nil
+      @input_sum_terms = []
     end
 
     # If there is a complete next state stored, updates the current state.
     def update_state
-      if @next_state
-        @curr_state = @next_state
-        @next_state = nil
-      end
+      @next_state = @curr_state
+      # TODO use a global coupling constatn? it would insert here
+      @next_state['phase'] += @input_sum_terms.inject(0){ |sum,item| sum + item } + @curr_state['freq']
+      @curr_state = @next_state
+      @next_state = nil
     end
 
     # Resets the current state to the "natural" state
@@ -171,7 +172,12 @@ module OscillatorNeuralNetwork
 
     # Propagates the node's curr_state to all of its out_conns
     def propagate
-      # TODO write propagation!
+      @out_conns.each_key do |receiver|
+        # Calculate the term of the sum corresponding to the propagating node
+        term = @out_conns[receiver] * Math::sin(@curr_state['phase']-receiver.curr_state['phase'])
+        # Insert the term in the receiver's registry
+        receiver.input_sum_terms << term
+      end
     end
 
   end
