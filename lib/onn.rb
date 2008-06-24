@@ -72,29 +72,39 @@ module OscillatorNeuralNetwork
 
     # Evaluates new input, given in 2D array form. 
     #   input_state: a new input.
-    def eval(input_state)
+    def eval(input_state, num_outputs)
 
       # Set new input states
       change_input(input_state)
 
-      # Traverse network and drive oscillations and calculate output TODO 
-      # 1. Starting with inputs,
-      #   2. Send the input's data to each of it's out_conns,
-      #     3. In the recieving node, keep sum of incoming connection contributions to sum
-      #   4. Once data sent to all out_conns, move to those nodes.
-      #     5. Make sure all incoming data is recieved from all in_conns,
-      #     6. Finish summing and calculate the new state. store in @next_state
-      #   7. Repeat, starting sending data to all out_conns... etc. until all done
-      # 8. Update the states simultaneously
+      # Force every node to propagate its current state to its out_conns
+      @nodes.each do |node|
+        node.propagate
+      end
+
+      # After propagation, set the new states
+      @nodes.each do |node|
+        node.update_state
+      end
 
       # Return the calculated output
-      return @output
+      start_index = @nodes.length - num_outputs
+      start_index.upto(@nodes.length) do |node|
+        output << node
+      end
+
+      output.reverse!
+
+      return output
 
     end
 
     # Resets the input states
     def change_input(new_input)
-      new_input.each_index { |index| @nodes[index].state = Hash.create(@state_names,new_input[index]) }
+      new_input.each_index { |index| 
+        @nodes[index].next_state = Hash.create(@state_names,new_input[index]) 
+        @nodes[index].curr_state = Hash.create(@state_names,new_input[index]) 
+      }
     end
 
     # This method trains the network using an instance of an OscillatorGeneticAlgorithm.
@@ -110,11 +120,19 @@ module OscillatorNeuralNetwork
     def train(input, output, pop_size, gens, seed, params)
       change_input(input)
       ga = GeneticSearch.new(self, pop_size, gens, seed, params)
+      # TODO straighten out exactly what ga returns, how to use it...
+      # thinking: GA returns a new set of nodes, do we need to evaluate it again? or can it return error?
       best = ga.run
-      eval(@input_states)
-      # TODO calculate/return weighted error
+      @nodes = best
+      eval(input, output.length)
+      return weighted_error
     end
-    
+
+    # Error weighting function
+    def weighted_error
+      # TODO
+    end
+
   end
 
   # This class keeps track of the state of a single OscillatorNeuron. Each neuron knows everything about
@@ -147,8 +165,13 @@ module OscillatorNeuralNetwork
     # Resets the current state to the "natural" state
     def reset_state
       if @natural_state
-        @current_state = @natural_state
+        @curr_state = @natural_state
       end
+    end
+
+    # Propagates the node's curr_state to all of its out_conns
+    def propagate
+      # TODO write propagation!
     end
 
   end
