@@ -45,6 +45,7 @@ module OscillatorNeuralNetwork
 
       # Create the network, which is an indexed list of OscillatorNeuron objects
       @nodes = []
+      # Should this happen here?
       state_vals.each { |nstate| @nodes << OscillatorNeuron.new(Hash.create(@state_names, nstate)) } 
       
       # Put nodes back in correct index order

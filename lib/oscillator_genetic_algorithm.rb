@@ -9,36 +9,39 @@
 # Based upon the genetic algorithm in the ai4r library.
 
 module OscillatorGeneticAlgorithm
- 
-  require 'onn'                   # For network
+
+  # for Network
+  require 'onn' 
   import OscillatorNeuralNetwork 
 
-  #  This class is used to run a genetic algorithm search of solutions for an ONN
+  #  This class is used to run a genetic algorithm search of solutions for an ONN training
   class GeneticSearch
-   
-    attr_accessor :population
-    ModifiableProperties = [:natural_freq, :natural_phase, :natural_amp, :weight]
+    
+    # Constant describing the names of properties which may be modified in evolution
+    ModifiableProperties = [:natural_freq, :natural_phase, :connection_weight]
 
-    # Creates new GeneticSearch with the given information
-    #   network: a GeneticAlgorithmONN object initialized as desired
-    #   initial_population_size: the size of the population to evolve
+    # Creates new GeneticSearch. 
+    #   network: a GeneticAlgorithmONN object, initialized as desired
+    #   population_size: the size of the population to evolve
     #   generations: the number of generations to evolve
-    #   seed: a random number seed for this entire run, for repeatability reasons
-    #   chrom_size: describes the size of any given chromosome
-    #   params: a hash describing which things will be adjusted by the GA 
-    def initialize(network, initial_population_size, generations, chrom_size, seed, params)
+    #   seed: a random number seed for this entire run (for repeatability reasons)
+    #   modify_info: a hash describing which things will be adjusted by the GA 
+    def initialize(network, population_size, generations, seed, modify_info)
+
       # Seed random number generator once for this run
       srand(seed)                                                       
+
       # Initialize fields
       @network = network
-      @population_size = initial_population_size 
+      @population_size = population_size 
       @max_generation = generations
       @generation = 0
       @chrom_size = chrom_size
-      # TODO deal with params
+      @modify_info = modify_info
+
     end
     
-    # Runs the genetic algorithm, returning the best chromosome on completion
+    # Runs the genetic algorithm, returning the best chromosome (network configuration) on completion
     #   1. Choose initial population
     #   2. Evaluate the fitness of each individual in the population
     #   3. Repeat
@@ -62,8 +65,7 @@ module OscillatorGeneticAlgorithm
    
     # Generates the initial population of chromosomes (uniformly distributed values) 
     def generate_initial_population
-      # TODO write general intialization logic (different types of chromosomes?)
-      # depends on params argument what the "population" will be!
+      # Should the chromosome be a list of nodes, an entire network object? difference? TODO
     end
     
     # Selection is the stage of a genetic algorithm in which individual 
@@ -159,12 +161,7 @@ module OscillatorGeneticAlgorithm
    
     # Data will be a size x size  matrix, where size is the number of nodes
     def initialize(size, data = nil)
-      @size = size 
-      if data
-        @data = data
-      else
-        @data = GSL::Matrix.alloc(@size) # Allocate an empty matrix for this set of weights
-      end
+
     end
     
     def fitness
