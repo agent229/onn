@@ -1,9 +1,7 @@
-# The OscillatorGeneticAlgorithm module implements the GeneticSearch  
-# and Chromosome classes. The GeneticSearch class performs a stochastic search 
-# of the solution of a given problem.
-# 
-# The chromosome is "problem specific" and allows the algorithm to make adjustments
-# specific to neural networks of oscillators.
+# The OscillatorGeneticAlgorithm module implements the GeneticSearch class. 
+# The GeneticSearch class performs a stochastic search of the solution of a given problem.
+#
+# In this case, the "chromosome" is simply an entire OscillatorNeuralNetwork object.
 # 
 # Based upon the genetic algorithm in the ai4r library.
 
@@ -13,44 +11,45 @@ module ONNGeneticAlgorithm
   require 'onn' 
   import OscillatorNeuralNetwork 
 
-  #  This class is used to run a genetic algorithm search of solutions for an ONN training
+  # This class is used to run a genetic algorithm search of solutions for an ONN training
   class GeneticSearch
     
     # Constant describing the names of properties which may be modified in evolution
     ModifiableProperties = [:natural_freq, :natural_phase, :connection_weight]
 
     # Creates new GeneticSearch. 
-    #   network: a GeneticAlgorithmONN object, initialized as desired
     #   population_size: the size of the population to evolve
     #   generations: the number of generations to evolve
     #   seed: a random number seed for this entire run (for repeatability reasons)
-    #   modify_info: a hash describing which things will be adjusted by the GA 
-    def initialize(network, population_size, generations, seed, modify_info)
+    def initialize(population_size, generations, seed)
 
       # Seed random number generator once for this run
       srand(seed)                                                       
 
       # Initialize fields
-      @network = network
       @population_size = population_size 
       @max_generation = generations
       @generation = 0
-      @chrom_size = chrom_size
-      @modify_info = modify_info
+      @population = []
 
     end
     
-    # Runs the genetic algorithm, returning the best chromosome (network configuration) on completion
-    #   1. Choose initial population
-    #   2. Evaluate the fitness of each individual in the population
-    #   3. Repeat
-    #     1. Select best-ranking individuals to reproduce (depending on chromosome type)
-    #     2. Breed new generation through crossover and mutation (genetic operations) 
-    #        and give birth to offspring (depending on chromosome type)
-    #     3. Evaluate the individual fitnesses of the offspring
-    #     4. Replace worst ranked part of population with offspring
-    #   4. Until termination
-    def run
+    # Runs a genetic algorithm, returning the best chromosome (network configuration) on completion
+    #  modify_directions: a Hash describing which qualities of the network should be mutated/
+    #                     modified, and with what chance. Eg, ['phase'=>0.25,'freq'=>0.75] means
+    #                     that natural phase will be modified 25% of the time, frequency 75% of the time
+    #  Algorithm:
+    #    1. Choose initial population (randomly or otherwise distributed)
+    #    2. Evaluate the fitness of each individual in the population
+    #    3. Repeat:
+    #      1. Select best-ranking individuals to reproduce (depending on chromosome type)
+    #      2. Breed new generation through mutation and give birth to offspring 
+    #      3. Evaluate the individual fitnesses of the offspring
+    #      4. Replace worst ranked part of population with offspring
+    #    4. Until @max_generation
+    #    5. Return the fittest member of the population
+    def run(modify_directions)
+
       generate_initial_population                     # generate initial population 
 
       @max_generation.times do
@@ -62,9 +61,13 @@ module ONNGeneticAlgorithm
       return best_chromosome
     end
    
-    # Generates the initial population of chromosomes (uniformly distributed values) 
+    # Generates the initial population (uniformly distributed values) 
     def generate_initial_population
-      # Should the chromosome be a list of nodes, an entire network object? difference? TODO
+
+      @population_size.times do
+        @population << 
+      end
+
     end
     
     # Selection is the stage of a genetic algorithm in which individual 
@@ -150,61 +153,5 @@ module ONNGeneticAlgorithm
     end
   end
 
-  # A Chromosome describes the the entire network. The parts of the network that are actually
-  # evolved may vary through use of the params hash to initialize the GA.
-  class Chromosome
-    
-    attr_accessor :data
-    attr_accessor :normalized_fitness
-    attr_accessor :size
-   
-    # Data will be a size x size  matrix, where size is the number of nodes
-    def initialize(size, data = nil)
-
-    end
-    
-    def fitness
-      return @fitness if @fitness
-      #TODO write propagation so this works... fitness weights.... etc
-      return @fitness
-    end
-
-    # Random noise added to weights
-    #   chromosome: the chromosome to mutate
-    #   mutation_rate: a tunable parameter describing chance of mutation
-    #   mutation_size: a tunable parameter describing the maximum size of the mutation
-    #   pct_weights_mutated: a tunable parameter describing the percentage of the weights that gets mutated if
-    #                        the chromosome is selected for mutation
-    def self.mutate(chromosome, mutation_rate, mutation_size, pct_weights_mutated)
-      if chromosome.normalized_fitness && rand < ((1 - chromosome.normalized_fitness) * mutation_rate)
-        1.upto(pct_weights_mutated*chromosome.size*chromosome.size) do
-          data[rand(chromosome.size),rand(chromosome.size)] += (rand(2*mutation_size) - mutation_size) 
-        end
-      @fitness = nil
-      end
-    end
-    
-    # Reproduction here involves no crossover, simply duplication. 
-    def self.reproduce(a, b)
-      offspring = Chromosome.new(a.size)
-      0.upto(a.size) do |row|
-        0.upto(a.size) do |col|
-          offspring.data[row,col]=a.data[row,col]
-        end
-      end
-      return offspring
-    end
-    
-    # Initializes an individual solution for the initial population.
-    # Right now, simply fills the data matrix with evenly distributed values on [0,1)
-    def self.seed
-      0.upto(@size-1) do |row|
-        0.upto(@size-1) do |col|
-          @data[row,col] = rand
-        end
-      end
-    end
-
-  end
 end
 
