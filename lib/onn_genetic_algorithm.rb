@@ -1,6 +1,5 @@
 # The OscillatorGeneticAlgorithm module implements the GeneticSearch  
-# and Chromosome classes. The GeneticSearch is a generic class, and can be used to solved 
-# any kind of problems. The GeneticSearch class performs a stochastic search 
+# and Chromosome classes. The GeneticSearch class performs a stochastic search 
 # of the solution of a given problem.
 # 
 # The chromosome is "problem specific" and allows the algorithm to make adjustments
@@ -8,7 +7,7 @@
 # 
 # Based upon the genetic algorithm in the ai4r library.
 
-module OscillatorGeneticAlgorithm
+module ONNGeneticAlgorithm
 
   # for Network
   require 'onn' 
