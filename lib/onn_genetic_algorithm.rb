@@ -1,44 +1,34 @@
 # The OscillatorGeneticAlgorithm module implements the GeneticSearch class. 
 # The GeneticSearch class performs a stochastic search of the solution of a given problem.
 #
-# In this case, the "chromosome" is simply an entire OscillatorNeuralNetwork object.
+# In this case, the "chromosome" is a list of OscillatorNeuron objects, storing their states.
 # 
 # Based upon the genetic algorithm in the ai4r library.
 
 module ONNGeneticAlgorithm
 
-  # for Network
+  # for network/nodes, import the module OscillatorNeuralNetwork
   require 'onn' 
   import OscillatorNeuralNetwork 
 
   # This class is used to run a genetic algorithm search of solutions for an ONN training
   class GeneticSearch
-    
-    # Constant describing the names of properties which may be modified in evolution
-    ModifiableProperties = [:natural_freq, :natural_phase, :connection_weight]
 
-    # Creates new GeneticSearch. 
+    # Creates new GeneticSearch instance 
+    #   network: an initialized GAOscillatorNeuralNetwork
     #   population_size: the size of the population to evolve
-    #   generations: the number of generations to evolve
-    #   seed: a random number seed for this entire run (for repeatability reasons)
-    def initialize(population_size, generations, seed)
-
-      # Seed random number generator once for this run
-      srand(seed)                                                       
-
+    #   generations:     the number of generations to evolve
+    def initialize(network, population_size, generations)
       # Initialize fields
       @population_size = population_size 
       @max_generation = generations
-      @generation = 0
-      @population = []
-
+      @curr_generation = 0
+      @population = [] # Will store population_size lists of OscillatorNeuron objects
+      @network = network
     end
     
-    # Runs a genetic algorithm, returning the best chromosome (network configuration) on completion
-    #  modify_directions: a Hash describing which qualities of the network should be mutated/
-    #                     modified, and with what chance. Eg, ['phase'=>0.25,'freq'=>0.75] means
-    #                     that natural phase will be modified 25% of the time, frequency 75% of the time
-    #  Algorithm:
+    # Runs a genetic algorithm, returning the best chromosome (node list) on completion
+    #  Algorithm summary:
     #    1. Choose initial population (randomly or otherwise distributed)
     #    2. Evaluate the fitness of each individual in the population
     #    3. Repeat:
@@ -48,26 +38,24 @@ module ONNGeneticAlgorithm
     #      4. Replace worst ranked part of population with offspring
     #    4. Until @max_generation
     #    5. Return the fittest member of the population
-    def run(modify_directions)
-
+    def run
       generate_initial_population                     # generate initial population 
-
       @max_generation.times do
         selected_to_breed = selection                 # evaluate current population 
         offsprings = reproduction(selected_to_breed)  # generate the population for this new generation
         replace_worst_ranked(offsprings)              # replace the worst members
       end
-
       return best_chromosome
     end
    
-    # Generates the initial population (uniformly distributed values) 
+    # Generates the initial population randomly (uniformly distributed properites)
     def generate_initial_population
-
       @population_size.times do
-        @population << 
+        data_arr = @network.generate_random_nodes
+        @network.set_nodes(data_arr)
+        @network.update_connections(@connections)
+        population << @network.nodes 
       end
-
     end
     
     # Selection is the stage of a genetic algorithm in which individual 
@@ -87,7 +75,6 @@ module ONNGeneticAlgorithm
     #    (its is normalized value plus the normalized values of the chromosomes prior it) greater than r.
     # 6. we repeat steps 4 and 5, 2/3 times the population size.    
     def selection
-      #TODO deal with this.... look through, make sure its ok
       @population.sort! { |a, b| b.fitness <=> a.fitness}
       best_fitness = @population[0].fitness
       worst_fitness = @population.last.fitness
@@ -116,7 +103,6 @@ module ONNGeneticAlgorithm
     # chromosome only if 
     #     rand < ((1 - chromosome.normalized_fitness) * 0.4)
     def reproduction(selected_to_breed)
-      # TODO deal with this...
       offsprings = []
       0.upto(selected_to_breed.length/2-1) do |i|
         offsprings << chromosome.reproduce(selected_to_breed[2*i], selected_to_breed[2*i+1])
@@ -140,6 +126,7 @@ module ONNGeneticAlgorithm
         the_best = chromosome if chromosome.fitness > the_best.fitness
       end
       return the_best
+      # TODO chromosome.fitness does not exist right now since chromosome is simply nodelist
     end
     
   private 
