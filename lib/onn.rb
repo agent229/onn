@@ -38,6 +38,7 @@ module OscillatorNeuralNetwork
       @nodes = []
       @num_nodes = num_nodes
       @connections = connections
+      @state_names = [:natural_freq, :natural_phase]
       # Seed PRNG for this run
       srand(seed)
     end
@@ -161,6 +162,8 @@ module OscillatorNeuralNetwork
     attr_accessor :curr_state
     # State is a hash, containing all information (besides connections)
     attr_accessor :next_state
+    # State is a hash, containing all information (besides connections)
+    attr_accessor :natural_state
 
     # Initialize a new OscillatorNeuron by passing a "natural state" hash.
     #   natural_state: a hash describing all of the "natural" state variables, with names as keys 
