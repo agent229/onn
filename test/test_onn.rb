@@ -1,6 +1,6 @@
 # Testing file for the genetic algorithm ONN
-require 'onn'
-import GAOscillatorNeuralNetwork
+require '~/Documents/SFI/NN/onn/lib/onn'
+include OscillatorNeuralNetwork
 require 'test/unit'
 
 class TestONN < Test::Unit::TestCase
@@ -16,33 +16,20 @@ class TestONN < Test::Unit::TestCase
   end
 
   def test_set_nodes
-    @net.set_nodes([0.75, 0.56],[0.45, 0.34]) 
-    assert_equal(@nodes.length,2)
-    assert_kind_of(OscillatorNeuron,@nodes[1])
-    assert_kind_of(OscillatorNeuron,@nodes[0])
-    assert_equal(@nodes[0].natural_state[:natural_frequency],0.75) 
-    assert_equal(@nodes[0].natural_state[:natural_phase],0.56) 
-    assert_equal(@nodes[1].natural_state[:natural_phase],0.45) 
-    assert_equal(@nodes[1].natural_state[:natural_freq],0.34) 
-    assert_equal(@nodes[0].current_state[:natural_frequency],0.75) 
-    assert_equal(@nodes[0].current_state[:natural_phase],0.56) 
-    assert_equal(@nodes[1].current_state[:natural_phase],0.45) 
-    assert_equal(@nodes[1].current_state[:natural_freq],0.34) 
-  end
-
-  def test_generate_random_nodes
-  end
-
-  def test_update_connections
+    @net.set_nodes([[0.75, 0.56],[0.45, 0.34]]) 
+    assert_equal(@net.nodes.length,2)
+    assert_kind_of(OscillatorNeuron,@net.nodes[1])
+    assert_kind_of(OscillatorNeuron,@net.nodes[0])
+    assert_equal(@net.nodes[0].natural_state[:natural_freq],0.75) 
+    assert_equal(@net.nodes[0].natural_state[:natural_phase],0.56) 
+    assert_equal(@net.nodes[1].natural_state[:natural_freq],0.45) 
+    assert_equal(@net.nodes[1].natural_state[:natural_phase],0.34) 
+    # test_update_connections
     @net.update_connections(@net.connections)
-    assert_equal(@nodes[0].in_conns[@nodes[1]],1)
-    assert_equal(@nodes[0].in_conns[@nodes[0]],0)
-    assert_equal(@nodes[1].in_conns[@nodes[1]],0)
-    assert_equal(@nodes[0].in_conns[@nodes[1]],1)
-    assert_equal(@nodes[0].out_conns[@nodes[1]],1)
-    assert_equal(@nodes[0].out_conns[@nodes[0]],0)
-    assert_equal(@nodes[1].out_conns[@nodes[1]],0)
-    assert_equal(@nodes[0].out_conns[@nodes[1]],1)
+    assert_equal(@net.nodes[0].in_conns[@net.nodes[1]],1)
+    assert_equal(@net.nodes[0].in_conns[@net.nodes[1]],1)
+    assert_equal(@net.nodes[0].out_conns[@net.nodes[1]],1)
+    assert_equal(@net.nodes[0].out_conns[@net.nodes[1]],1)
   end
 
 end

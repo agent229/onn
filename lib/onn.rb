@@ -7,8 +7,8 @@
 module OscillatorNeuralNetwork
  
   # For genetic algorithm
-  require 'onn_genetic_algorithm'
-  import ONNGeneticAlgorithm      
+  require '~/Documents/SFI/NN/onn/lib/onn_genetic_algorithm'
+  include ONNGeneticAlgorithm      
 
   # Custom Hash convenience method: converts an array of keys and an array of values to a Hash
   #  keys: an array containing the ordered keys
@@ -26,6 +26,9 @@ module OscillatorNeuralNetwork
    
     # Access to the array of OscillatorNeuron objects comprising the network
     attr_accessor :nodes
+    attr_reader :t_step
+    attr_reader :num_nodes
+    attr_reader :connections
 
     # Initializes an ONN of coupled sinusoidal oscillators. (simple version)
     #   t_step: discrete time step to be used in simulation to update oscillators
@@ -47,7 +50,7 @@ module OscillatorNeuralNetwork
     def set_nodes(state_vals)
       state_vals.each { |nstate| @nodes << OscillatorNeuron.new(Hash.create(@state_names, nstate)) } 
       # Put nodes back in correct index order
-      @nodes.reverse!
+      #@nodes.reverse!
     end
 
     # Generates random set of nodes (random natural states)

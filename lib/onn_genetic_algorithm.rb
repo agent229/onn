@@ -7,10 +7,6 @@
 
 module ONNGeneticAlgorithm
 
-  # for network/nodes, import the module OscillatorNeuralNetwork
-  require 'onn' 
-  import OscillatorNeuralNetwork 
-
   # This class is used to run a genetic algorithm search of solutions for an ONN training
   class GeneticSearch
 
