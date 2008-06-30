@@ -2,7 +2,7 @@
 # algorithm as the learning rule. It learns by adjusting either individual connection weights
 # or the "natural" properties of the oscillators, depending on the need of the user.
 #
-# Based on the neural network from the ai4r library.
+# (Loosely) based on the neural network from the ai4r library.
 
 module OscillatorNeuralNetwork
  
@@ -26,6 +26,7 @@ module OscillatorNeuralNetwork
    
     # Access to the array of OscillatorNeuron objects comprising the network
     attr_accessor :nodes
+    # Ready-only access to other fields (for testing/data output)
     attr_reader :t_step
     attr_reader :num_nodes
     attr_reader :connections
@@ -41,20 +42,19 @@ module OscillatorNeuralNetwork
       @nodes = []
       @num_nodes = num_nodes
       @connections = connections
+      # TODO un-hard-code names?
       @state_names = [:natural_freq, :natural_phase]
       # Seed PRNG for this run
       srand(seed)
     end
 
-    # Stores input data array in nodes as list.
+    # Stores input data array as list of OscillatorNeuron objects instantiated with data.
     def set_nodes(state_vals)
       state_vals.each { |nstate| @nodes << OscillatorNeuron.new(Hash.create(@state_names, nstate)) } 
-      # Put nodes back in correct index order
-      #@nodes.reverse!
     end
 
-    # Generates random set of nodes (random natural states)
-    def generate_random_nodes
+    # Generates 'random' set of node data (random natural states)
+    def generate_random_node_data
       data = []
       @num_nodes.times do
         row = []
@@ -80,7 +80,7 @@ module OscillatorNeuralNetwork
     end
 
     # Updates the connections between nodes based on the connections 2D array/matrix.
-    # Stores the connection information in each node's in_conns and out_conns fields.
+    # Stores the connection information in the approproiate node's in_conns and out_conns fields.
     #  connections: the 2D (nested) array of weighted connections
     def update_connections(connections)
      # Iterate through each entry in the 2D array
@@ -95,12 +95,9 @@ module OscillatorNeuralNetwork
       end 
     end
 
-    # Evaluates the network's state by propagating through a new input, given in 2D array form. 
-    #   input_state: a new input (2D array format)
-    #   num_outputs: the number of output nodes in the network
-    def eval(input_state, num_outputs)
-      # Set new input states
-      change_input(input_state)
+    # Evaluates the network's state by propagating through the current input states. To
+    # propagate a enw input state, first call change_input
+    def eval
       # Tell every node to propagate its current state to its out_conns
       @nodes.each do |node|
         node.propagate
@@ -110,11 +107,18 @@ module OscillatorNeuralNetwork
         node.update_state
       end
       # Return the calculated output as a 2D array of output nodes
-      (@nodes.length-num_outputs).upto(@nodes.length) do |node|
-        output << node
+      return get_outputs
+    end
+
+    # Retrieves all output nodes by checking which have no out_conns 
+    def get_outputs
+      count = 0
+      @nodes.each do |node|
+        if node.out_conns.empty?
+          outputs << node
+        end 
       end
-      output.reverse!
-      return output
+      return outputs # TODO is order preserved? is order needed?
     end
 
     # Resets the input states manually
@@ -127,28 +131,46 @@ module OscillatorNeuralNetwork
 
     # This method trains the network using an instance of an OscillatorGeneticAlgorithm.
     #   input: Network input (nested/2D array form)
-    #   output: Expected output for the given input (nested/2D array form)
+    #   output: Expected/desired output for the given input (nested/2D array form)
     #   pop_size: how many solutions to evolve in the population
     #   gens: how many generations to run the GA
-    #   seed: a PRNG seed governing all PRNG uses in this run (for repeatability)
     #
     # Returns: the difference between real output and the expected output
-    def train(input, output, pop_size, gens)
+    def train(input, exp_output, pop_size, gens)
+      # new instance vars for current training run
+      @curr_expected = exp_output
       # Set new input
       change_input(input)
       # Instantiate genetic algorithm
       ga = GeneticSearch.new(self, pop_size, gens)
-      # Run genetic algorithm
-      @nodes = ga.run(modify_rules)
-      # Evaluate the result
-      output = eval(input, output.length)
+      # Run genetic algorithm, getting the set of nodes back
+      @nodes = ga.run
+      # Evaluate the result with the new, GA-modified nodes in place
+      actual_output = eval
       # Calculate and return a weighted error
-      return weighted_error(output)
+      err = weighted_error(actual_output, exp_output)
+      @curr_expected = nil
+      return err
     end
 
-    # Error weighting function: will take certain parameters and calculate a weighted error
-    def weighted_error(result)
-      # TODO define weighted error
+    # Error weighting function. calculates a weighted error measure of the output
+    #   result: the actual result of a network propagation
+    #   expected: the expected/desired result
+    def weighted_error(result, expected)
+      result.each_index do |rows|
+        result[rows].each_index do |columns|
+          # TODO cleanup/fix/figure out
+          w_err += Math::abs(result[columns][rows]-expected[columns][rows])
+        end
+      end
+      return w_err
+    end
+
+    # Fitness function for GA. Returns a normalized fitness value (0-1)
+    def fitness
+     output = self.eval  
+     err = weighted_error(output,@curr_expected)
+     return err
     end
 
   end
@@ -157,16 +179,16 @@ module OscillatorNeuralNetwork
   # its own natural state, current state, next state, and inbound/outbound connections.
   class OscillatorNeuron
 
-    # A list of existing OscillatorNeuron objects which point here hashed with conn weights
+    # A list of existing OscillatorNeuron objects which connect to this neuron, hashed with conn weights
     attr_accessor :in_conns
-    # A list of existing OscillatorNeuron objects which this points at hashed with conn weights
+    # A list of existing OscillatorNeuron objects which this neuron connects to, hashed with conn weights
     attr_accessor :out_conns 
     # State is a hash, containing all information (besides connections)
     attr_accessor :curr_state
     # State is a hash, containing all information (besides connections)
     attr_accessor :next_state
     # State is a hash, containing all information (besides connections)
-    attr_accessor :natural_state
+    attr_reader :natural_state
 
     # Initialize a new OscillatorNeuron by passing a "natural state" hash.
     #   natural_state: a hash describing all of the "natural" state variables, with names as keys 
@@ -181,7 +203,7 @@ module OscillatorNeuralNetwork
       @input_sum_terms = []
     end
 
-    # Updates the current state based on the inputs to this node. 
+    # Updates the current state based on the current states of inputs to this node.  
     def update_state
       @next_state = @curr_state
       # Traditional Kuramoto-style update rule, with variable connection weight capability
