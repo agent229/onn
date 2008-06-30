@@ -12,8 +12,8 @@ module ONNGeneticAlgorithm
 
     # Creates new GeneticSearch instance 
     #   network: an initialized GAOscillatorNeuralNetwork
-    #   population_size: the size of the population to evolve
-    #   generations:     the number of generations to evolve
+    #   population_size: the size of the population of potential solutions 
+    #   generations:     the number of generations to run the GA 
     def initialize(network, population_size, generations)
       # Initialize fields
       @population_size = population_size 
@@ -27,13 +27,12 @@ module ONNGeneticAlgorithm
     #  Algorithm summary:
     #    1. Choose initial population (randomly or otherwise distributed)
     #    2. Evaluate the fitness of each individual in the population
-    #    3. Repeat:
-    #      1. Select best-ranking individuals to reproduce (depending on chromosome type)
+    #    3. Repeat until @max_generation:
+    #      1. Select best-ranking individuals to reproduce 
     #      2. Breed new generation through mutation and give birth to offspring 
     #      3. Evaluate the individual fitnesses of the offspring
     #      4. Replace worst ranked part of population with offspring
-    #    4. Until @max_generation
-    #    5. Return the fittest member of the population
+    #    4. Return the fittest member of the population
     def run
       generate_initial_population                     # generate initial population 
       @max_generation.times do
@@ -45,9 +44,10 @@ module ONNGeneticAlgorithm
     end
    
     # Generates the initial population randomly (uniformly distributed properites)
+    # with a given connections matrix
     def generate_initial_population
       @population_size.times do
-        data_arr = @network.generate_random_nodes
+        data_arr = @network.generate_random_node_data
         @network.set_nodes(data_arr)
         @network.update_connections(@connections)
         population << @network.nodes 
@@ -63,26 +63,22 @@ module ONNGeneticAlgorithm
     # Steps:
     # 1. the fitness function is evaluated for each individual, providing fitness values
     # 2. the population is sorted by descending fitness values.
-    # 3. the fitness values ar then normalized. (highest fitness gets 1, lowest fitness gets 0). 
-    #    the normalized value is stored in the "normalized_fitness" attribute of the chromosomes.
-    # 4. a random number r is chosen. r is between 0 and the accumulated normalized value 
+    # 3. a random number r is chosen. r is between 0 and the accumulated normalized value 
     #    (all the normalized fitness values added togheter).
-    # 5. the selected individual is the first one whose accumulated normalized value 
+    # 4. the selected individual is the first one whose accumulated normalized value 
     #    (its is normalized value plus the normalized values of the chromosomes prior it) greater than r.
-    # 6. we repeat steps 4 and 5, 2/3 times the population size.    
+    # 5. we repeat steps 4 and 5, 2/3 times the population size.    
     def selection
       @population.sort! { |a, b| b.fitness <=> a.fitness}
       best_fitness = @population[0].fitness
       worst_fitness = @population.last.fitness
       acum_fitness = 0
       if best_fitness-worst_fitness > 0
-      @population.each do |chromosome| 
-        chromosome.normalized_fitness = (chromosome.fitness - worst_fitness)/(best_fitness-worst_fitness)
-        acum_fitness += chromosome.normalized_fitness
+        @population.each do |chromosome| 
+          acum_fitness += chromosome.fitness
+        end
       end
-      else
-        @population.each { |chromosome| chromosome.normalized_fitness = 1}  
-      end
+
       selected_to_breed = []
       ((2*@population_size)/3).times do 
         selected_to_breed << select_random_individual(acum_fitness)
@@ -97,7 +93,7 @@ module ONNGeneticAlgorithm
     # each member of the population. you should implement chromosome.mutate
     # to only change (mutate) randomly. e.g. you could effectivly change the
     # chromosome only if 
-    #     rand < ((1 - chromosome.normalized_fitness) * 0.4)
+    #     rand < ((1 - chromosome.fitness) * 0.4)
     def reproduction(selected_to_breed)
       offsprings = []
       0.upto(selected_to_breed.length/2-1) do |i|
@@ -122,7 +118,6 @@ module ONNGeneticAlgorithm
         the_best = chromosome if chromosome.fitness > the_best.fitness
       end
       return the_best
-      # TODO chromosome.fitness does not exist right now since chromosome is simply nodelist
     end
     
   private 
@@ -130,7 +125,7 @@ module ONNGeneticAlgorithm
       select_random_target = acum_fitness * rand
       local_acum = 0
       @population.each do |chromosome|
-        local_acum += chromosome.normalized_fitness
+        local_acum += chromosome.fitness
         return chromosome if local_acum >= select_random_target
       end
     end
