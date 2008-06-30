@@ -10,6 +10,12 @@ module ONNGeneticAlgorithm
   # This class is used to run a genetic algorithm search of solutions for an ONN training
   class GeneticSearch
 
+    attr_reader :population_size
+    attr_reader :max_generation
+    attr_reader :curr_generation
+    attr_reader :population
+    attr_reader :network
+
     # Creates new GeneticSearch instance 
     #   network: an initialized GAOscillatorNeuralNetwork
     #   population_size: the size of the population of potential solutions 
@@ -49,7 +55,7 @@ module ONNGeneticAlgorithm
       @population_size.times do
         data_arr = @network.generate_random_node_data
         @network.set_nodes(data_arr)
-        @network.update_connections(@connections)
+        @network.update_connections(@network.connections)
         population << @network.nodes 
       end
     end
