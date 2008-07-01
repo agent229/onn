@@ -9,7 +9,7 @@ class TestGA < Test::Unit::TestCase
 
   def setup
     @net = GAOscillatorNeuralNetwork.new(1.0, 2, 45, [[0, 1],[1, 0]])
-    @ga = GeneticSearch.new(@net, 10, 10)
+    @ga = GeneticSearch.new(@net, 10, 10, 0.4)
   end
 
   def test_init
@@ -18,6 +18,7 @@ class TestGA < Test::Unit::TestCase
     assert_equal(@ga.curr_generation, 0)
     assert_equal(@ga.network,@net)
     assert_equal(@ga.population,[])
+    assert_equal(@ga.mutation_rate,0.4)
   end
 
   def test_generate_initial_population
