@@ -14,18 +14,21 @@ module ONNGeneticAlgorithm
     attr_reader :max_generation
     attr_reader :curr_generation
     attr_reader :population
+    attr_reader :network
+    attr_reader :mutation_rate
 
     # Creates new GeneticSearch instance 
     #   network: the network
     #   population_size: the size of the population of potential solutions 
     #   generations:     the number of generations to run the GA 
-    def initialize(network, population_size, generations)
+    def initialize(network, population_size, generations, mutation_rate)
       # Initialize fields
       @population_size = population_size 
       @max_generation = generations
       @curr_generation = 0
       @population = [] # Will store population_size lists of network objects
       @network = network
+      @mutation_rate = mutation_rate
     end
     
     # Runs a genetic algorithm, returning the best chromosome (node list) on completion
@@ -74,13 +77,13 @@ module ONNGeneticAlgorithm
     #    (its is normalized value plus the normalized values of the chromosomes prior it) greater than r.
     # 5. we repeat steps 4 and 5, 2/3 times the population size.    
     def selection
-      @population.sort! { |a, b| fitness(b) <=> fitness(a)}
-      best_fitness = fitness(@population[0])
-      worst_fitness = fitness(@population.last)
+      @population.sort! { |a, b| @network.fitness(b) <=> @network.fitness(a)}
+      best_fitness = @network.fitness(@population[0])
+      worst_fitness = @network.fitness(@population.last)
       acum_fitness = 0
-      if best_fitness-worst_fitness > 0
-        @population.each do |chromosome| 
-          acum_fitness += fitness(chromosome)
+        if best_fitness - worst_fitness > 0
+          @population.each do |chromosome| 
+          acum_fitness += @network.fitness(chromosome)
         end
       end
 
@@ -101,11 +104,8 @@ module ONNGeneticAlgorithm
     #     rand < ((1 - chromosome.fitness) * 0.4)
     def reproduction(selected_to_breed)
       offsprings = []
-      0.upto(selected_to_breed.length/2-1) do |i|
-        offsprings << chromosome.reproduce(selected_to_breed[2*i], selected_to_breed[2*i+1])
-      end
       @population.each do |individual|
-        chromosome.mutate(individual)
+        @network.mutate(individual,@mutation_rate)
       end
       return offsprings
     end
@@ -120,7 +120,7 @@ module ONNGeneticAlgorithm
     def best_chromosome
       the_best = @population[0]
       @population.each do |chromosome|
-        the_best = chromosome if fitness(chromosome) > fitness(the_best)
+        the_best = chromosome if @network.fitness(chromosome) > @network.fitness(the_best)
       end
       return the_best
     end
@@ -130,7 +130,7 @@ module ONNGeneticAlgorithm
       select_random_target = acum_fitness * rand
       local_acum = 0
       @population.each do |chromosome|
-        local_acum += fitness(chromosome)
+        local_acum += @network.fitness(chromosome)
         return chromosome if local_acum >= select_random_target
       end
     end

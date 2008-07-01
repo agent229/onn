@@ -113,6 +113,7 @@ module OscillatorNeuralNetwork
     # Retrieves all output nodes by checking which have no out_conns 
     def get_outputs
       count = 0
+      outputs = []
       @nodes.each do |node|
         if node.out_conns.empty?
           outputs << node
@@ -136,13 +137,13 @@ module OscillatorNeuralNetwork
     #   gens: how many generations to run the GA
     #
     # Returns: the difference between real output and the expected output
-    def train(input, exp_output, pop_size, gens)
+    def train(input, exp_output, pop_size, gens, mutation_rate)
       # new instance vars for current training run
       @curr_expected = exp_output
       # Set new input
       change_input(input)
       # Instantiate genetic algorithm
-      ga = GeneticSearch.new(self, pop_size, gens)
+      ga = GeneticSearch.new(self, pop_size, gens, mutation_rate)
       # Run genetic algorithm, getting the set of nodes back
       @nodes = ga.run
       # Evaluate the result with the new, GA-modified nodes in place
@@ -157,10 +158,11 @@ module OscillatorNeuralNetwork
     #   result: the actual result of a network propagation
     #   expected: the expected/desired result
     def weighted_error(result, expected)
-      result.each_index do |rows|
-        result[rows].each_index do |columns|
+      w_err = 1 # FOR TESTING
+      result.each_index do |node_index|
+        result[node_index].curr_state.each_key do |state_name|
           # TODO cleanup/fix/figure out
-          w_err += Math::abs(result[columns][rows]-expected[columns][rows])
+          # w_err += Math::abs(result[node_index].curr_state[state_name]-expected[node_index].curr_state[state_name])
         end
       end
       return w_err
@@ -169,9 +171,20 @@ module OscillatorNeuralNetwork
     # Fitness function for GA. Returns a normalized fitness value (0-1)
     def fitness(chromosome)
      @nodes = chromosome
-     output = net.eval  
-     err = net.weighted_error(output,@curr_expected)
+     output = eval  
+     err = weighted_error(output,@curr_expected)
      return err
+    end
+
+    # Mutation function. Randomly mutates with a given chance specified by GA
+    def mutate(chromosome, mutation_rate)
+      chromosome.each do |node|
+        node.natural_state.each_value do |val|
+        if rand < mutation_rate
+          val += (rand - 0.5)  
+        end
+      end
+      end
     end
 
   end
@@ -190,6 +203,7 @@ module OscillatorNeuralNetwork
     attr_accessor :next_state
     # State is a hash, containing all information (besides connections)
     attr_reader :natural_state
+    attr_accessor :input_sum_terms
 
     # Initialize a new OscillatorNeuron by passing a "natural state" hash.
     #   natural_state: a hash describing all of the "natural" state variables, with names as keys 
@@ -208,7 +222,7 @@ module OscillatorNeuralNetwork
     def update_state
       @next_state = @curr_state
       # Traditional Kuramoto-style update rule, with variable connection weight capability
-      @next_state[:phase] += @input_sum_terms.inject(0){ |sum,item| sum + item } + @curr_state[:freq]
+      @next_state[:natural_phase] += @input_sum_terms.inject(0){ |sum,item| sum + item } + @curr_state[:natural_freq]
       @curr_state = @next_state
       @next_state = nil
     end
@@ -223,7 +237,7 @@ module OscillatorNeuralNetwork
       # Iterate through all outgoing connections
       @out_conns.each_key do |receiver|
         # Calculate the term of the sum corresponding to the propagating node
-        term = @out_conns[receiver] * Math::sin(@curr_state['phase']-receiver.curr_state['phase'])
+        term = @out_conns[receiver] * Math::sin(@curr_state[:natural_phase]-receiver.curr_state[:natural_phase])
         # Insert the term in the receiver's registry
         receiver.input_sum_terms << term
       end
