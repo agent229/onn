@@ -1,7 +1,7 @@
 # The OscillatorGeneticAlgorithm module implements the GeneticSearch class. 
 # The GeneticSearch class performs a stochastic search of the solution of a given problem.
 #
-# In this case, the "chromosome" is a list of OscillatorNeuron objects, storing their states.
+# In this case, the "chromosome" is a list of OscillatorNeuron objects describing their states.
 # 
 # Based upon the genetic algorithm in the ai4r library.
 
@@ -14,10 +14,9 @@ module ONNGeneticAlgorithm
     attr_reader :max_generation
     attr_reader :curr_generation
     attr_reader :population
-    attr_reader :network
 
     # Creates new GeneticSearch instance 
-    #   network: an initialized GAOscillatorNeuralNetwork
+    #   network: the network
     #   population_size: the size of the population of potential solutions 
     #   generations:     the number of generations to run the GA 
     def initialize(network, population_size, generations)
@@ -25,7 +24,7 @@ module ONNGeneticAlgorithm
       @population_size = population_size 
       @max_generation = generations
       @curr_generation = 0
-      @population = [] # Will store population_size lists of OscillatorNeuron objects
+      @population = [] # Will store population_size lists of network objects
       @network = network
     end
     
@@ -75,13 +74,13 @@ module ONNGeneticAlgorithm
     #    (its is normalized value plus the normalized values of the chromosomes prior it) greater than r.
     # 5. we repeat steps 4 and 5, 2/3 times the population size.    
     def selection
-      @population.sort! { |a, b| b.fitness <=> a.fitness}
-      best_fitness = @population[0].fitness
-      worst_fitness = @population.last.fitness
+      @population.sort! { |a, b| fitness(b) <=> fitness(a)}
+      best_fitness = fitness(@population[0])
+      worst_fitness = fitness(@population.last)
       acum_fitness = 0
       if best_fitness-worst_fitness > 0
         @population.each do |chromosome| 
-          acum_fitness += chromosome.fitness
+          acum_fitness += fitness(chromosome)
         end
       end
 
@@ -121,7 +120,7 @@ module ONNGeneticAlgorithm
     def best_chromosome
       the_best = @population[0]
       @population.each do |chromosome|
-        the_best = chromosome if chromosome.fitness > the_best.fitness
+        the_best = chromosome if fitness(chromosome) > fitness(the_best)
       end
       return the_best
     end
@@ -131,7 +130,7 @@ module ONNGeneticAlgorithm
       select_random_target = acum_fitness * rand
       local_acum = 0
       @population.each do |chromosome|
-        local_acum += chromosome.fitness
+        local_acum += fitness(chromosome)
         return chromosome if local_acum >= select_random_target
       end
     end
