@@ -28,7 +28,9 @@ class TestGA < Test::Unit::TestCase
   end
 
   def test_run
-
+    best = @ga.run
+    assert_kind_of(Array,best)
+    assert_kind_of(OscillatorNeuron,best[0])
   end
 
 end
