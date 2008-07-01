@@ -167,9 +167,10 @@ module OscillatorNeuralNetwork
     end
 
     # Fitness function for GA. Returns a normalized fitness value (0-1)
-    def fitness
-     output = self.eval  
-     err = weighted_error(output,@curr_expected)
+    def fitness(chromosome)
+     @nodes = chromosome
+     output = net.eval  
+     err = net.weighted_error(output,@curr_expected)
      return err
     end
 
