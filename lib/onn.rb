@@ -29,21 +29,20 @@ module OscillatorNeuralNetwork
     # Ready-only access to other fields (for testing/data output)
     attr_reader :t_step
     attr_reader :num_nodes
-    attr_reader :connections
+    attr_reader :seed
 
     # Initializes an ONN of coupled sinusoidal oscillators. (simple version)
     #   t_step: discrete time step to be used in simulation to update oscillators
     #   num_nodes: the number of nodes to create in the network
     #   seed: a PRNG seed governing all PRNG uses in this run (for repeatability)
-    #   connections: connections matrix
-    def initialize(t_step, num_nodes, seed, connections)
+    def initialize(t_step, num_nodes, seed)
       # Initialize some instance variables
       @t_step = t_step
+      @seed = seed
       @nodes = []
       @num_nodes = num_nodes
-      @connections = connections
       # TODO un-hard-code names?
-      @state_names = [:natural_freq, :natural_phase]
+      @state_names = [:freq, :phase]
       # Seed PRNG for this run
       srand(seed)
     end
@@ -66,23 +65,10 @@ module OscillatorNeuralNetwork
       return data
     end
 
-    # Generates random connections matrix (TODO deal with inputs/outputs restrictions)
-    def generate_random_connections
-      conns = []
-      @num_nodes.times do
-        row = []
-        @num_nodes.times do
-          row << rand 
-        end
-        conns << row
-      end
-      return conns
-    end
-
     # Updates the connections between nodes based on the connections 2D array/matrix.
     # Stores the connection information in the approproiate node's in_conns and out_conns fields.
     #  connections: the 2D (nested) array of weighted connections
-    def update_connections(connections)
+    def set_connections(connections)
      # Iterate through each entry in the 2D array
       connections.each_index do |row_index|
         connections[row_index].each_index do |col_index|
@@ -98,6 +84,7 @@ module OscillatorNeuralNetwork
     # Evaluates the network's state by propagating through the current input states. To
     # propagate a enw input state, first call change_input
     def eval
+      # TODO watch for infinite loops (if nodes are connected to each other...)
       # Tell every node to propagate its current state to its out_conns
       @nodes.each do |node|
         node.propagate
@@ -222,7 +209,8 @@ module OscillatorNeuralNetwork
     def update_state
       @next_state = @curr_state
       # Traditional Kuramoto-style update rule, with variable connection weight capability
-      @next_state[:natural_phase] += @input_sum_terms.inject(0){ |sum,item| sum + item } + @curr_state[:natural_freq]
+      sum = @input_sum_terms.inject(0){|sum,item| sum+item}
+      @next_state[:phase] += @natural_state[:freq] - sum
       @curr_state = @next_state
       @next_state = nil
     end
@@ -230,6 +218,7 @@ module OscillatorNeuralNetwork
     # Resets the current state to the "natural" state
     def reset_state
       @curr_state = @natural_state
+      @next_state = nil
     end
 
     # Propagates the node's curr_state to all of its out_conns
@@ -237,7 +226,7 @@ module OscillatorNeuralNetwork
       # Iterate through all outgoing connections
       @out_conns.each_key do |receiver|
         # Calculate the term of the sum corresponding to the propagating node
-        term = @out_conns[receiver] * Math::sin(@curr_state[:natural_phase]-receiver.curr_state[:natural_phase])
+        term = @out_conns[receiver] * Math::sin(@curr_state[:phase]-receiver.curr_state[:phase])
         # Insert the term in the receiver's registry
         receiver.input_sum_terms << term
       end
