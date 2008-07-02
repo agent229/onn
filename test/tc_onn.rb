@@ -98,6 +98,10 @@ class TestONN < Test::Unit::TestCase
   def test_eval
     # TODO write this
   end
+
+  def test_propagate
+    # TODO write propagation tests for a simple sample network
+  end
 end
 
 class TestOscillatorNeuron < Test::Unit::TestCase
@@ -124,10 +128,6 @@ class TestOscillatorNeuron < Test::Unit::TestCase
 
     @node1.reset_state
     assert_equal(@node1.natural_state,@node1.curr_state)
-  end
-
-  def test_propagate
-    # TODO write this.... or maybe put in the entire network tests
   end
 
 end
