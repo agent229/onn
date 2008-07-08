@@ -57,7 +57,6 @@ module ONNGeneticAlgorithm
       @population_size.times do
         data_arr = @network.generate_random_node_data
         @network.set_nodes(data_arr)
-        @network.update_connections(@network.connections)
         population << @network.nodes 
       end
     end
