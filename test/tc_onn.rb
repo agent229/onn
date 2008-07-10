@@ -95,6 +95,10 @@ class TestONN < Test::Unit::TestCase
     end
   end
 
+  def test_wavelet
+    @net1.get_frequency([0, 1, 1, 1, 0])
+  end
+
   def test_eval
     # TODO write this
   end

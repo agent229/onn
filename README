@@ -4,7 +4,7 @@ Implements an oscillator neural network which uses a genetic algorithm as its
 learning/training rule. Flexible enough to accomodate any network structure 
 and to train by weights or by varying inherent properties of the oscillators.
 
-Usage:
+General Usage:
 
 1. Create a GAOscillatorNeuralNetwork object, initializing as desired.
 
@@ -13,3 +13,13 @@ Usage:
    with what probability.
 
 3. Recieve back the "fittest" solution found.
+
+Node Numbering:
+
+  The input format of the connections and node data takes advantage of each node having
+a specific index. The assignment of indices to nodes must be done by the user and must
+remain consistent during all data input operations to ensure correct results. The only
+requirements on the numbering, other than consistency, is that all of the N "input" nodes
+occupy the first N indices (within the inputs, order is not important). Similarly, all of
+the M "output" nodes must occupy the last M indices (again, within the group, order is
+not important). Please follow these numbering conventions consistently.

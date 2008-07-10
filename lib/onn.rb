@@ -12,6 +12,7 @@ module OscillatorNeuralNetwork
 
   # For Ruby/GSL scientific library
   require 'gsl'
+  include Odeiv
 
   # "Genetic algorithm oscillator neural network" (GAONN) class definition describes an
   # entire network object through a list of nodes and some parameters
@@ -228,7 +229,7 @@ module OscillatorNeuralNetwork
     
     attr_accessor :x
     attr_accessor :x_prime
-    attr_accessor :x_prime_prime
+    attr_accessor :x_double_prime
 
     attr_accessor :natural_freq
     attr_accessor :amplitude
@@ -244,7 +245,8 @@ module OscillatorNeuralNetwork
       # Set states
       @natural_freq = natural_state[1]
       @amplitude = natural_state[2]
-      @x, @x_prime, @x_prime_prime = 0
+      @a = 0 #TODO diff btwn a, amplitude?
+      @x, @x_prime, @x_double_prime = 0
 
       # Reserve space for other instance variables
       @in_conns = Hash.new 
@@ -261,6 +263,32 @@ module OscillatorNeuralNetwork
     # Updates the current state based on the current states of inputs to this node.  
     def update_state
       sum = @input_sum_terms.inject(0){|sum,item| sum+item}
+      dim = 2 #dimension of the ODE system
+
+      # Proc object to represent system
+      func = Proc.new { |t, y, dydt, a|
+        dydt[0] = y[1]
+        dydt[1] = -a*y[0] + sum 
+      }
+
+      # Create the solver
+      solver = Solver.alloc(Step::RKF45, [1e-6, 0.0], func, dim)
+      @solver.set_params(@a)
+
+      # TODO deal with time params correctly
+      t = 0.0
+      t_end = 100.0
+      h = 1e-6
+      y = GSL::Vector.aloc([1.0, 0.0]) #Initial value
+
+      while t < t_end
+        t, h, status = solver.apply(t, t1, h, y)
+
+        break if status != GSL::SUCCESS
+
+        printf("%.5e %.5e %.5e %.5e\n", t, y[0], y[1], h)
+      end
+
     end
 
     # Propagates the node's curr_state to all of its out_conns
