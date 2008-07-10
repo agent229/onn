@@ -10,6 +10,9 @@ module OscillatorNeuralNetwork
   require '~/Documents/SFI/NN/onn/lib/onn_genetic_algorithm'
   include ONNGeneticAlgorithm      
 
+  # For Ruby/GSL scientific library
+  require 'gsl'
+
   # "Genetic algorithm oscillator neural network" (GAONN) class definition describes an
   # entire network object through a list of nodes and some parameters
   class GAOscillatorNeuralNetwork 
@@ -48,7 +51,6 @@ module OscillatorNeuralNetwork
       @connections = connections
 
       # Seed PRNG for this run
-      # TODO make sure this ensures all calls to rand use this seed, even from other files
       srand(seed)
     end
 
@@ -90,6 +92,20 @@ module OscillatorNeuralNetwork
       return @nodes.last 
     end
 
+    # Error weighting function. Calculates a weighted error measure of the output.
+    #   result: the actual result of a network propagation (list of output nodes)
+    #   expected: the expected/desired result (2D array of data)
+    def weighted_error(result, expected)
+      w_err = 0
+      result.each_index do |node_index|
+        w_err += Math::sqrt(Math::square(result[node_index].amplitude-expected[node_index][1]) + Math::square(result[node_index].freq-expected[node_index][0]))
+      end
+      w_err = w_err / result.length
+      return w_err
+    end
+
+  #### GA related functions ####
+
     # This method trains the network using an instance of an OscillatorGeneticAlgorithm.
     #   input: Network input (ordered list of data vectors)
     #   exp_output: Expected/desired output for the given input (ordered list of data vectors)
@@ -117,31 +133,6 @@ module OscillatorNeuralNetwork
       return err
     end
 
-    # Sets the input nodes to different oscillator data
-    #   new_input_data: a list of vectors describing the natural frequency and amplitudes of the inputs like <freq, amp>
-    def change_input(new_input_data)
-      @nodes[0].each_index do |node_index|
-        @nodes[0][node_index].set_state(new_input_data[node_index])
-      end
-    end
-
-    # Error weighting function. Calculates a weighted error measure of the output.
-    #   result: the actual result of a network propagation (list of output nodes)
-    #   expected: the expected/desired result (2D array of data)
-    def weighted_error(result, expected)
-      w_err = 0
-      result.each_index do |node_index|
-        w_err += Math::sqrt(Math::square(result[node_index].amplitude-expected[node_index][1]) + Math::square(result[node_index].freq-expected[node_index][0]))
-      end
-      w_err = w_err / result.length
-      return w_err
-    end
-
-    class << Math
-      def square(num)
-        return num * num
-      end
-    end
  
     # TODO fix with layers, make @curr_expected cleaner......
     # GA fitness function. Takes a nodelist and returns a weighted error calculation of the result
@@ -170,10 +161,69 @@ module OscillatorNeuralNetwork
       return chromosome
     end
 
+  #### Helper/convenience functions ####
+
+    # Sets the input nodes to different oscillator data
+    #   new_input_data: a list of vectors describing the natural frequency and amplitudes of the inputs like <freq, amp>
+    def change_input(new_input_data)
+      @nodes[0].each_index do |node_index|
+        @nodes[0][node_index].set_state(new_input_data[node_index])
+      end
+    end
+
+    # Uses wavelet transform to get dominant frequency
+    #  data_arr: an array of data points 
+    def get_frequency(data_arr)
+      #TODO fix up 
+      # vector = data_arr.to_gv
+      vector = GSL::Vector.alloc(0, 1, 0, 1, 0, 1, 0, 1)
+      nc = 20 # what is this?
+      w = GSL::Wavelet.alloc("daubechies", 4)
+      work = GSL::Wavelet::Workspace.alloc(vector.len)
+      data2 = w.transform(vector, GSL::Wavelet::FORWARD, work)
+      perm = data2.abs.sort_index
+
+      i = 0
+      while (i + nc) < vector.len 
+        data2[perm[i]] = 0.0
+        i += 1  
+      end
+    end
+
+    # Creates a plot-suitable data file of ordered pairs
+    #   filename: a String giving the filename
+    #   data1, data2: GSL::Vectors of data, equal length preferably
+    def plottable_data(filename, data1, data2)
+      file = File.open('#{filename}', 'w+')
+      data1.len.times do |index|
+        file.puts(data1[index].to_s + " " + data2[index].to_s + "\n")
+      end
+      file.close
+    end
+
+    # Plots data using GNU graph
+    #   options: a GNU graph options string, including output filetype
+    #   input_filename: name of an input data file
+    #   output_filename: name of file to store the graph in (may be left off if not saving graph)
+    def make_plot(options, input_filename, output_filename=nil)
+      if output_filename
+        `graph #{options} < #{input_filename} > #{output_filename}`
+      else
+        `graph #{options} < #{input_filename}`
+      end
+    end
+
+    class << Math
+      def square(num)
+        return num * num
+      end
+    end
+
   end
 
   # This class describes a single OscillatorNeuron. Each neuron knows everything about
   # its own natural state, current state, next state, and inbound/outbound connections.
+
   class OscillatorNeuron
     
     attr_accessor :x
@@ -207,7 +257,7 @@ module OscillatorNeuralNetwork
       @amplitude = new_data[1]
     end
 
-    # TODO fix
+    # TODO fix, solve ODEs for new state, etc....
     # Updates the current state based on the current states of inputs to this node.  
     def update_state
       sum = @input_sum_terms.inject(0){|sum,item| sum+item}
