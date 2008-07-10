@@ -12,7 +12,10 @@ module OscillatorNeuralNetwork
 
   # For Ruby/GSL scientific library
   require 'gsl'
-  include Odeiv
+
+  # For plotting utility
+  require '~/Documents/SFI/NN/onn/lib/plotter'
+  include Plot
 
   # "Genetic algorithm oscillator neural network" (GAONN) class definition describes an
   # entire network object through a list of nodes and some parameters
@@ -50,6 +53,7 @@ module OscillatorNeuralNetwork
       # Initialize network of nodes by layer
       @nodes = create_node_list(node_data)
       @connections = connections
+      @output_states = [] # Will store evolution of output states for analysis
 
       # Seed PRNG for this run
       srand(seed)
@@ -88,6 +92,9 @@ module OscillatorNeuralNetwork
           node.update_state
         end
       end
+
+      # Store this set of output states for stability analysis
+      @output_states << @nodes.last
 
       # Return the calculated output as an array/list of output nodes
       return @nodes.last 
@@ -146,16 +153,16 @@ module OscillatorNeuralNetwork
       return err
     end
 
-    # TODO fix with layers
     # Mutation function. Randomly mutates with a given chance specified by GA.
     #  chromosome: a nodelist (list of Oscillator Neurons divided into layers)
     #  mutation_rate: parameter describing the rate of mutation (chance of random mutation)
     # Returns the mutated chromosome
     def mutate(chromosome, mutation_rate)
-      chromosome.each do |node|
-        node.natural_state.each_value do |val|
+      chromosome.each do |layer|
+        layer.each do |node|
+          # Add random mutations with chance mutation_rate
           if rand < mutation_rate
-            val += (rand - 0.5)  
+            node.natural_freq += (1/(2*GSL::M_PI) * (rand - 0.5)) % (1/(2*GSL::M_PI)) 
           end
         end
       end
@@ -176,42 +183,8 @@ module OscillatorNeuralNetwork
     #  data_arr: an array of data points 
     def get_frequency(data_arr)
       #TODO fix up 
-      # vector = data_arr.to_gv
-      vector = GSL::Vector.alloc(0, 1, 0, 1, 0, 1, 0, 1)
-      nc = 20 # what is this?
-      w = GSL::Wavelet.alloc("daubechies", 4)
-      work = GSL::Wavelet::Workspace.alloc(vector.len)
-      data2 = w.transform(vector, GSL::Wavelet::FORWARD, work)
-      perm = data2.abs.sort_index
-
-      i = 0
-      while (i + nc) < vector.len 
-        data2[perm[i]] = 0.0
-        i += 1  
-      end
-    end
-
-    # Creates a plot-suitable data file of ordered pairs
-    #   filename: a String giving the filename
-    #   data1, data2: GSL::Vectors of data, equal length preferably
-    def plottable_data(filename, data1, data2)
-      file = File.open('#{filename}', 'w+')
-      data1.len.times do |index|
-        file.puts(data1[index].to_s + " " + data2[index].to_s + "\n")
-      end
-      file.close
-    end
-
-    # Plots data using GNU graph
-    #   options: a GNU graph options string, including output filetype
-    #   input_filename: name of an input data file
-    #   output_filename: name of file to store the graph in (may be left off if not saving graph)
-    def make_plot(options, input_filename, output_filename=nil)
-      if output_filename
-        `graph #{options} < #{input_filename} > #{output_filename}`
-      else
-        `graph #{options} < #{input_filename}`
-      end
+      vector = data_arr.to_gv
+      # TODO run fourier analysis on vector
     end
 
     class << Math
@@ -263,6 +236,41 @@ module OscillatorNeuralNetwork
     # Updates the current state based on the current states of inputs to this node.  
     def update_state
       sum = @input_sum_terms.inject(0){|sum,item| sum+item}
+
+      # An oscillator
+      #   m: mass
+      #   k: spring constant
+      #   b: resist
+      #   f: external force
+
+      dim = 2
+
+      # x[0]: displacement, x[1]: velocity
+      func = Proc.new { |t, x, dxdt, params|
+        m = params[0]; b = params[1]; f = params[2]; k = params[3]
+        dxdt[0] = x[1]
+        dxdt[1] = (f - b*x[1] - k*x[0])/m
+      }
+
+      gos = GSL::Odeiv::Solver.alloc(GSL::Odeiv::Step::RKF45, [1e-6, 0.0], func, dim)
+
+      m = 1.0
+      b = 1.0
+      f = 1.0
+      k = 10.0
+
+      gos.set_params(m, b, f, k)
+
+      t = 0.0; tend = 10.0
+      h = 1e-6
+      x = GSL::Vector.alloc([0.0, 0.0])
+
+      GSL::ieee_env_setup()
+
+      # Graph it!
+
+      ### 2nd version
+
       dim = 2 #dimension of the ODE system
 
       # Proc object to represent system
@@ -296,7 +304,7 @@ module OscillatorNeuralNetwork
       # Iterate through all outgoing connections
       @out_conns.each_key do |receiver|
         # Calculate the term of the sum corresponding to the propagating node
-        term = @out_conns[receiver] * (x - receiver.x)
+        term = @out_conns[receiver] * (@x - receiver.x)
         # Insert the term in the receiver's registry
         receiver.input_sum_terms << term
       end
