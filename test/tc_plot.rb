@@ -6,19 +6,12 @@ require 'test/unit'
 
 class TestPlot < Test::Unit::TestCase
 
-  def setup
-    @v1 = GSL::Vector.linspace(0, 2.0*GSL::M_PI, 20)
-    @v2 = GSL::Sf::sin(@v1)
-    @v3 = 2 * GSL::Sf::sin(@v1)
-    @plotter = Plotter.new
-  end
-
   def test_simple_plotting
-  @v2.graph(@v1,"-T png -C -L 'sin(x)' > fig.png")
-#    @plotter.make_plottable_data("data_test",@v1,@v2)
-#    @plotter.make_plot("-T png","data_test","plot_test.png")
-#    @plotter.make_plottable_data("data_test2",@v1,@v3)
-#    @plotter.make_plot("-T png","data_test2","plot_test2.png")
+    v1 = GSL::Vector.linspace(0, 2.0*GSL::M_PI, 20)
+    v2 = GSL::Sf::sin(v1)
+    v3 = 2 * GSL::Sf::sin(v1)
+    v2.graph(v1,"-T png -C -L 'sin(x)' > fig.png")
+    v3.graph(v1,"-T png -C -L '2sin(x)' > fig2.png")
   end
 
   def test_plotting_fft
@@ -66,17 +59,10 @@ class TestPlot < Test::Unit::TestCase
     phase4 = y4p.arg
     f4 = GSL::Vector.linspace(0, sampling/2, mag4.size)
 
-    @plotter.make_plottable_data("fft_test",f1,mag1)
-    @plotter.make_plot("-T png -C -g 3 -x 0 200 -X 'Frequency: unit amp'","fft_test","fft_plot.png")
-
-    @plotter.make_plottable_data("fft_test2",f2,mag2)
-    @plotter.make_plot("-T png -C -g 3 -x 0 200 -X 'Frequency: doubled amp'","fft_test2","fft_plot2.png")
-
-    @plotter.make_plottable_data("fft_test3",f3,mag3)
-    @plotter.make_plot("-T png -C -g 3 -x 0 200 -X 'Frequency: 2/3 amp'","fft_test3","fft_plot3.png")
-
-    @plotter.make_plottable_data("fft_test4",f4,mag4)
-    @plotter.make_plot("-T png -C -g 3 -x 0 200 -X 'Frequency: unit amp, noise added'","fft_test4","fft_plot4.png")
+    mag1.graph(f1,"-T png -C -g 3 -x 0 200 -X 'Frequency: unit amp' > fft_plot.png")
+    mag2.graph(f2,"-T png -C -g 3 -x 0 200 -X 'Frequency: unit amp' > fft_plot2.png")
+    mag3.graph(f3,"-T png -C -g 3 -x 0 200 -X 'Frequency: unit amp' > fft_plot3.png")
+    mag4.graph(f4,"-T png -C -g 3 -x 0 200 -X 'Frequency: unit amp' > fft_plot4.png")
   end
 
 end
