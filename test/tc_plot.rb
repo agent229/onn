@@ -14,10 +14,11 @@ class TestPlot < Test::Unit::TestCase
   end
 
   def test_simple_plotting
-    @plotter.make_plottable_data("data_test",@v1,@v2)
-    @plotter.make_plot("-T png","data_test","plot_test.png")
-    @plotter.make_plottable_data("data_test2",@v1,@v3)
-    @plotter.make_plot("-T png","data_test2","plot_test2.png")
+  @v2.graph(@v1,"-T png -C -L 'sin(x)' > fig.png")
+#    @plotter.make_plottable_data("data_test",@v1,@v2)
+#    @plotter.make_plot("-T png","data_test","plot_test.png")
+#    @plotter.make_plottable_data("data_test2",@v1,@v3)
+#    @plotter.make_plot("-T png","data_test2","plot_test2.png")
   end
 
   def test_plotting_fft
