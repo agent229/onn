@@ -7,7 +7,7 @@
 module OscillatorNeuralNetwork
  
   # For genetic algorithm
-  # TODO fix hardcoded path
+  # TODO fix hardcoded path if deploying on linux
   require '~/Documents/SFI/NN/onn/lib/onn_genetic_algorithm'
   include ONNGeneticAlgorithm      
 
@@ -23,12 +23,10 @@ module OscillatorNeuralNetwork
 
     # Update rule parameters
     attr_reader :time_param
-    attr_reader :window_param
     attr_reader :seed
 
     # Default/suggested settings for parameters
     DEFAULT_TIME_PARAM = 0.2
-    DEFAULT_WINDOW_PARAM = 20
     DEFAULT_SEED = 0
     DEFAULT_MUTATION_RATE = 0.4
 
@@ -37,8 +35,8 @@ module OscillatorNeuralNetwork
     # This method trains a network using an instance of an OscillatorGeneticAlgorithm.
     #
     #   network:       the initial network to train 
-    #   input:         Matrix of inputs to the network 
-    #   exp_output:    Expected/desired output for the given input 
+    #   input:         GSL::Matrix of inputs to the network 
+    #   exp_output:    GSL::Matrix of expected/desired output for the given input 
     #   pop_size:      How many solutions to keep in the "potential solution" population
     #   gens:          How many generations to run the GA
     #   mutation_rate: a parameter describing how frequently a given solution gets random mutations
@@ -51,6 +49,8 @@ module OscillatorNeuralNetwork
       ga = GeneticSearch.new(network, pop_size, gens, mutation_rate) # Create GA
       best_net = ga.run                                              # Run GA
       # TODO determine exactly what gets returned from GA, what is neccessary to run it for error
+      # TODO HERE, do the loop for evaluation... perhaps abstract somewhere to use other places too
+      # (eval only evaluates once, decide here how many times to do this, for how long, fourier etc)
       actual_output = eval                                           # Evaluate trained network and get error
       err = weighted_error(actual_output, exp_output)
       return [best_net, err]
@@ -64,18 +64,15 @@ module OscillatorNeuralNetwork
     #   connections:  a GSL::Matrix of connection strengths in the network. ijth entry is connection from node i to node j
     #   seed:         a PRNG seed governing all PRNG uses in this run (for repeatability)
     #   time_param:   parameter to be used in simulation to help decide how often to update states (scales the minimum period)
-    #   window_param: parameter to be used in simulation to help decide stability (scales the max period)
     #
-    def initialize(node_data, connections, seed=DEFAULT_SEED, time_param=DEFAULT_TIME_PARAM, window_param=DEFAULT_WINDOW_PARAM)
+    def initialize(node_data, connections, seed=DEFAULT_SEED, time_param=DEFAULT_TIME_PARAM)
       @time_param = time_param                          # Set parameters
-      @window_param = window_param
       @seed = seed
       @nodes = create_node_list(node_data, connections) # Initialize network of nodes by layer
       @connections = connections                        # Store connections GSL::Matrix
       @curr_time = 0.0                                  # Set current time to 0
       srand(seed)                                       # Seed PRNG for this run
-
-      # TODO calculate time step
+      calc_time_step                                    # Calculate an appropriate time step
     end
 
     # Creates the list of OscillatorNeuron objects which contain the data 
@@ -94,8 +91,7 @@ module OscillatorNeuralNetwork
     end
 
     # Evaluates the network's output state by propagating the current input states through the network.
-    # Returns a list containing the output states after sufficient stabilizing time.
-    # TODO decide how many times to propagate... how many time steps...
+    # Evaluates over one time step and returns the current set of outputs.
     def eval
 
       # Tell every node to propagate/communicate its current state to its outgoing connections
@@ -123,7 +119,8 @@ module OscillatorNeuralNetwork
     def weighted_error(result, expected)
       w_err = 0
       result.each_index do |node_index|
-        w_err += GSL::hypot(result[node_index].amplitude-expected[node_index][1], result[node_index].freq-expected[node_index][0])
+        #TODO write function that estimates frequency, amp based on other data, use that here
+        w_err += GSL::hypot(result[node_index].get_a-expected[node_index][0], result[node_index].freq-expected[node_index][0])
       end
       w_err = w_err / result.length
       return w_err
@@ -159,6 +156,18 @@ module OscillatorNeuralNetwork
     end
 
   #### Helper/convenience functions ####
+
+    # Calculates a good guess of a time step to use based on the minimum a (spring constant)
+    # Returns a guess as to a good time step.
+    def calc_time_step
+      min_a = @nodes[0].get_a
+      @nodes.each do |node|
+        if(node.get_a < min_a)
+          min_a = node.get_a
+        end
+      end
+      return (min_a * @time_param)
+    end
 
     # Stores connection information from the connections matrix into the nodes.
     #
