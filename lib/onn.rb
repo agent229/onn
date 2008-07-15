@@ -6,7 +6,7 @@
 module OscillatorNeuralNetwork
  
   # For genetic algorithm
-  require File.expand_path(File.dirname(__FILE__)) + "onn_genetic_algorithm"
+  require File.expand_path(File.dirname(__FILE__)) + "/onn_genetic_algorithm"
   include ONNGeneticAlgorithm      
 
   # For Ruby/GSL scientific library (vectors, matrices, graphing)
@@ -17,8 +17,11 @@ module OscillatorNeuralNetwork
   class GAONN 
   
     attr_accessor :nodes        # An array of OscillatorNeuron objects
-    attr_reader :time_param     # Parameter helping determine time step
+    attr_reader :t_step         # time step
+    attr_reader :eval_steps     # number of steps to run net
     attr_reader :seed           # PRNG seed governing all uses of "rand"
+    attr_reader :connections
+    attr_reader :curr_time
 
     DEFAULT_MUTATION_RATE = 0.4
     DEFAULT_T_STEP_PARAM = 0.2    # Default/suggested settings for parameters
@@ -57,25 +60,23 @@ module OscillatorNeuralNetwork
     #   t_step_param:    parameter to be used in simulation to help decide time step (scales the minimum period)
     #   num_evals_param: parameter used to decide how many evaluations to complete before evaluating outputs
     def initialize(node_data, connections, seed=DEFAULT_SEED, t_step_param=DEFAULT_T_STEP_PARAM, num_evals_param=DEFAULT_NUM_EVALS_PARAM)
-      @time_param = time_param                          # Set parameters
       @seed = seed
-      @nodes = create_node_list(node_data, connections) # Initialize network of nodes by layer
-      @connections = connections                        # Store connections GSL::Matrix
-      @curr_time = 0.0                                  # Set current time to 0
-      srand(seed)                                       # Seed PRNG for this run
-      @t_step, @eval_steps = calc_time_vars             # Calculate appropriate time step, number of time steps
+      @connections = connections.clone                                     # Store connections GSL::Matrix
+      @nodes = create_node_list(node_data)                                 # Initialize network of nodes by layer
+      @curr_time = 0.0                                                     # Set current time to 0
+      srand(seed)                                                          # Seed PRNG for this run
+      @t_step, @eval_steps = calc_time_vars(t_step_param, num_evals_param) # Calculate appropriate time step, number of time steps
     end
 
     # Creates the list of OscillatorNeuron objects which contain the data 
     #   node_data:   GSL::Matrix with rows containing node data vectors (see OscillatorNeuron for detail)
-    #   connections: GSL::Matrix of connection strengths
     # Returns the list of nodes.
-    def create_node_list(node_data, connections)
+    def create_node_list(node_data)
       nodes = []
       node_data.each_row do |node_datum|
         nodes << OscillatorNeuron.new(node_datum, self) # Initialize node states
       end
-      nodes = set_conns_from_mat(nodes, connections)    # Set connections
+      nodes = set_conns_from_mat(nodes)   # Set connections
       return nodes
     end
 
@@ -149,8 +150,8 @@ module OscillatorNeuralNetwork
     # Calculates good guesses of a time step to use based on the minimum a (spring constant)
     # and the number of steps to evaluate the network until returning the output states.
     # Returns both values in the order t_step, eval_steps
-    def calc_time_vars
-      min_a, max_a = @nodes[0].get_a
+    def calc_time_vars(t_step_param,eval_steps_param)
+      min_a = max_a = @nodes[0].get_a
       @nodes.each do |node|
         if(node.get_a < min_a)
           min_a = node.get_a
@@ -159,24 +160,23 @@ module OscillatorNeuralNetwork
           max_a = node.get_a
         end
       end
-      return [(min_a * @t_step_param), (max_a * @eval_steps)]
+      return (min_a * t_step_param), (max_a * eval_steps_param)
     end
 
     # Stores connection information from the connections matrix into the nodes.
     #   nodes:       list of OscillatorNeuron objects in order
-    #   connections: connections GSL::Matrix describing connections between nodes
     # Returns the nodelist with connections set
-    def set_conns_from_mat(nodes, connections)
-      pointer_index = 1
-      reciever_index = 1
-      connections.each_row do |pointer|
-        pointer.each do |reciever|
+    def set_conns_from_mat(nodes)
+      pointer_index = 0
+      receiver_index = 0
+      @connections.each_row do |pointer|
+        pointer.each do |receiver|
           if !GSL::equal?(receiver, 0.0)
-            nodes[receiver_index].in_conns = Hash.new(nodes[pointer_index], receiver)
+            nodes[receiver_index].out_conns[nodes[pointer_index]] = receiver
           end
-        reciever_index += 1
+          receiver_index += 1
         end
-        reciever_index = 1
+        receiver_index = 0
         pointer_index += 1
       end
       return nodes
@@ -202,7 +202,7 @@ module OscillatorNeuralNetwork
       end
     end
 
-    # Uses wavelet transform to get dominant frequency
+    # Uses fourier/wavelet transform to get dominant frequency, amplitude
     #  data_arr: an array of data vectors over time for all output nodes
     def fourier_analyze(data_arr)
       amps, freqs = []
@@ -256,7 +256,7 @@ module OscillatorNeuralNetwork
     #   network_ref: a reference to the network containing this neuron
     def initialize(state_vec, network_ref)
       # Set state vector
-      @state_vector = state_vec
+      @state_vector = state_vec.clone
 
       # Reserve space for other instance variables
       @out_conns = Hash.new

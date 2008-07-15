@@ -1,6 +1,4 @@
 # Tests the plotting methods
-require '~/Documents/SFI/NN/onn/lib/plotter'
-include Plot
 require 'gsl'
 require 'test/unit'
 
@@ -60,9 +58,9 @@ class TestPlot < Test::Unit::TestCase
     f4 = GSL::Vector.linspace(0, sampling/2, mag4.size)
 
     mag1.graph(f1,"-T png -C -g 3 -x 0 200 -X 'Frequency: unit amp' > fft_plot.png")
-    mag2.graph(f2,"-T png -C -g 3 -x 0 200 -X 'Frequency: unit amp' > fft_plot2.png")
-    mag3.graph(f3,"-T png -C -g 3 -x 0 200 -X 'Frequency: unit amp' > fft_plot3.png")
-    mag4.graph(f4,"-T png -C -g 3 -x 0 200 -X 'Frequency: unit amp' > fft_plot4.png")
+    mag2.graph(f2,"-T png -C -g 3 -x 0 200 -X 'Frequency: 2x amp' > fft_plot2.png")
+    mag3.graph(f3,"-T png -C -g 3 -x 0 200 -X 'Frequency: 2/3 amp' > fft_plot3.png")
+    mag4.graph(f4,"-T png -C -g 3 -x 0 200 -X 'Frequency: with errors' > fft_plot4.png")
   end
 
 end
