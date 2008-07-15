@@ -1,7 +1,6 @@
 # This is an implementation of oscillator neural networks which uses a genetic
 # algorithm as the learning rule. It learns by adjusting either individual connection weights
 # or the "natural" properties of the oscillators, depending on the need of the user.
-#
 # (Loosely) based on the neural network from the ai4r library.
 
 module OscillatorNeuralNetwork
