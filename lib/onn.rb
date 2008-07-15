@@ -172,7 +172,7 @@ module OscillatorNeuralNetwork
       @connections.each_row do |pointer|
         pointer.each do |receiver|
           if !GSL::equal?(receiver, 0.0)
-            nodes[receiver_index].out_conns[nodes[pointer_index]] = receiver
+            nodes[pointer_index].out_conns[nodes[receiver_index]] = receiver
           end
           receiver_index += 1
         end
