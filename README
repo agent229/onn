@@ -6,20 +6,9 @@ and to train by weights or by varying inherent properties of the oscillators.
 
 General Usage:
 
-1. Create a GAOscillatorNeuralNetwork object, initializing as desired.
+1. Create a GAONN object, initializing as desired.
 
-2. Call "train" on that object, passing in the hash describing which
-   aspects should be mutated and which should be held constant and 
-   with what probability.
+2. Call "train" on that object.
 
 3. Recieve back the "fittest" solution found.
 
-Node Numbering:
-
-  The input format of the connections and node data takes advantage of each node having
-a specific index. The assignment of indices to nodes must be done by the user and must
-remain consistent during all data input operations to ensure correct results. The only
-requirements on the numbering, other than consistency, is that all of the N "input" nodes
-occupy the first N indices (within the inputs, order is not important). Similarly, all of
-the M "output" nodes must occupy the last M indices (again, within the group, order is
-not important). Please follow these numbering conventions consistently.
