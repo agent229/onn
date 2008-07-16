@@ -9,7 +9,7 @@ class TestONN < Test::Unit::TestCase
   def setup
     node_data = GSL::Matrix[[0.5,0.2,1,0,0,0],[0.7,0.3,0,0,0,1]]
     conns = GSL::Matrix[[0,0.75],[0,0]]
-    @net = GAONN.new(node_data,conns) 
+    @net = GAONN.new(node_data,conns,1) 
   end
 
   def test_init

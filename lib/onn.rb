@@ -203,7 +203,7 @@ module OscillatorNeuralNetwork
     def change_input(new_input_data)
       node_counter = 0
       new_input_data.each_row do |row|
-        @nodes[node_counter].state_vector = row  
+        @nodes[node_counter].state_vector = row.clone
         node_counter += 1
       end
     end
