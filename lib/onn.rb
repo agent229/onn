@@ -56,11 +56,13 @@ module OscillatorNeuralNetwork
     # Initializes an ONN of coupled harmonic oscillators. 
     #   node_data:       a GSL::Matrix containing vectors of node data (see OscillatorNeuron class for detail) 
     #   connections:     a GSL::Matrix of connection strengths. ijth entry is connection from node i to node j
+    #   num_outputs:     the number of outputs that will exist in the network
     #   seed:            a PRNG seed governing all PRNG uses in this run (for repeatability)
     #   t_step_param:    parameter to be used in simulation to help decide time step (scales the minimum period)
     #   num_evals_param: parameter used to decide how many evaluations to complete before evaluating outputs
-    def initialize(node_data, connections, seed=DEFAULT_SEED, t_step_param=DEFAULT_T_STEP_PARAM, num_evals_param=DEFAULT_NUM_EVALS_PARAM)
+    def initialize(node_data, connections, num_outputs, seed=DEFAULT_SEED, t_step_param=DEFAULT_T_STEP_PARAM, num_evals_param=DEFAULT_NUM_EVALS_PARAM)
       @seed = seed
+      @num_outputs = num_outputs
       @connections = connections.clone                                     # Store connections GSL::Matrix
       @nodes = create_node_list(node_data)                                 # Initialize network of nodes by layer
       @curr_time = 0.0                                                     # Set current time to 0
@@ -84,6 +86,7 @@ module OscillatorNeuralNetwork
     # The number of times it is called is determined by parameters and
     # initial conditions of the system (stored in @eval_steps)
     def eval_over_time
+      @output_states = []
       @eval_steps.times do
         @output_states << eval
       end
@@ -104,17 +107,17 @@ module OscillatorNeuralNetwork
     end
 
     # Error weighting function. Calculates a Euclidean-style weighted error measure of the output.
-    #   result:   the actual results of a network propagation (list of lists of output nodes over time)
+    #   result:   the actual results of a network propagation (vector of vectors of output node data over time)
     #   expected: the expected/desired result (2D array of data)
     def weighted_error(results, expected)
       w_err = 0.0
       result_amps, result_freqs = fourier_analyze(results)
-      result.each_index do |node_index|
+      result_amps.each_index do |node_index|
         amp_term = result_amps[node_index] - amp_from_vec(expected[node_index])
         freq_term = result_freqs[node_index] - freq_from_vec(expected[node_index])
         w_err += GSL::hypot(amp_term, freq_term)
       end
-      w_err /= result.length
+      w_err /= result_amps.length
       return w_err
     end
 
@@ -182,14 +185,17 @@ module OscillatorNeuralNetwork
       return nodes
     end
 
-    # Retreives the current output states as an array of GSL::Vectors of data (ordered)
+    # Retreives the current output states as a Matrix of row GSL::Vectors of data (ordered)
     def get_outputs
-      outputs = []
+      outputs = GSL::Matrix.alloc(@num_outputs,@nodes[0].state_vector.len) 
       output_layer_num = @nodes.last.get_layer
-      @nodes.reverse_each do |node|
-        outputs << node unless node.get_layer != output_layer_num
+      counter = 0
+      @nodes.each_index do |node_index|
+        if @nodes[node_index].get_layer == outupt_layer_num
+          outputs.set_row(counter, @nodes[node_index].state_vector)
+          counter += 1
+        end
       end
-      return outputs.reverse!
     end
 
     # Sets the input nodes to different oscillator data
@@ -203,9 +209,10 @@ module OscillatorNeuralNetwork
     end
 
     # Uses fourier/wavelet transform to get dominant frequency, amplitude
-    #  data_arr: an array of data vectors over time for all output nodes
-    def fourier_analyze(data_arr)
+    #  data_mat: a matrix of data vectors over time for all output nodes
+    def fourier_analyze(data_mat)
       amps, freqs = []
+
       # TODO write this function
       return [amps, freqs]
     end
