@@ -288,6 +288,10 @@ module OscillatorNeuralNetwork
       @curr_time += @t_step
     end
 
+    def get_time_step
+      @curr_time/@t_step
+    end 
+
   end
 
   # This class describes a single OscillatorNeuron. Each neuron knows everything about
@@ -299,16 +303,19 @@ module OscillatorNeuralNetwork
 
   class OscillatorNeuron
 
-    attr_accessor :state_vector
+    attr_accessor :states_matrix
     attr_accessor :input_sum_terms
     attr_accessor :out_conns
+    attr_accessor :layer
 
     # Initialize a new OscillatorNeuron by passing a "natural state" hash.
     #   state_vec: a GSL::Vector describing the state as given above
     #   network_ref: a reference to the network containing this neuron
     def initialize(state_vec, network_ref)
-      # Set state vector
-      @state_vector = state_vec.clone
+      # Set state vector as first row in states_matrix
+      @states_matrix = GSL::Matrix.alloc(network_ref.eval_steps,state_vec.len-1)
+      @layer = state_vec.pop 
+      @states_matrix.set_row(0, state_vec)
 
       # Reserve space for other instance variables
       @out_conns = Hash.new
@@ -316,79 +323,96 @@ module OscillatorNeuralNetwork
       @network = network_ref
     end
 
-    #### Accessor methods for individual elements of the state vector ####
+    #### Accessor methods for individual elements of the state matrix ####
 
-    def set_a(new_a)
-      @state_vector[0] = new_a
+    def set_a(step_num, new_a)
+      @states_matrix[step_num][0] = new_a
     end
 
-    def set_b(new_b)
-      @state_vector[1] = new_b
+    def set_b(step_num, new_b)
+      @states_matrix[step_num][1] = new_b
     end
 
-    def set_x(new_x)
-      @state_vector[2] = new_x
+    def set_x(step_num, new_x)
+      @states_matrix[step_num][2] = new_x
     end
 
-    def set_x_prime(new_x_prime)
-      @state_vector[3] = new_x_prime
+    def set_x_prime(step_num, new_x_prime)
+      @states_matrix[step_num][3] = new_x_prime
     end
 
-    def set_x_dbl_prime(new_x_dbl_prime)
-      @state_vector[4] = new_x_dbl_prime
+    def set_x_dbl_prime(step_num, new_x_dbl_prime)
+      @states_matrix[step_num][4] = new_x_dbl_prime
     end
 
-    def get_a
-      return @state_vector[0] 
+    def get_a(step_num)
+      return @states_matrix[step_num][0] 
     end
 
-    def get_b
-      return @state_vector[1]
+    def get_b(step_num)
+      return @states_matrix[step_num][1]
     end
 
-    def get_x
-      return @state_vector[2]
+    def get_x(step_num)
+      return @states_matrix[step_num][2]
     end
 
-    def get_x_prime
-      return @state_vector[3]
+    def get_x_prime(step_num)
+      return @states_matrix[step_num][3]
     end
 
-    def get_x_dbl_prime
-      return @state_vector[4] 
-    end
-
-    def get_layer
-      return @state_vector[5]
+    def get_x_dbl_prime(step_num)
+      return @states_matrix[step_num][4] 
     end
 
     # Updates the current state of an input node using exact solutions to the equation
-    # x_dbl_prime = -a*x (since there are no inputs to the input nodes, the added term is zero)
-    # The exact solution is x = A*sin(sqrt(a)*t + phi), where A = sqrt(x_prime^2+x^2), phi = arctan(x/x_prime)
+    #   x_dbl_prime = -a*x 
+    # The exact solutions are:
+    #   x           = A*sin(sqrt(a)*t+phi), 
+    #   x_prime     = A*sqrt(a)*cos(sqrt(a)*t+phi) 
+    #   x_dbl_prime = -A*a*sin(sqrt(a)*t+phi) 
+    #   where A = sqrt(x_prime^2+x^2), phi = arctan(x/x_prime)
+    # Stores all of the new states in the next state vector
     def update_input_state
-      amp = GSL::hypot(get_x_prime, get_x)
-      phi = Math::atan(get_x/get_x_prime)
-      new_x = amp*Math::sin(Math::sqrt(get_a)*@network.get_current_time + phi)
-      set_x(new_x)
+      last_time_step = @network.get_step_num
+      next_time_step = @network.get_step_num + 1
+
+      a = get_a(last_time_step)
+      x = get_x(last_time_step)
+      x_prime = get_x_prime(last_time_step)
+      t = @network.get_current_time
+
+      amp = GSL::hypot(x_prime, x)
+      phi = Math::atan(x/x_prime)
+
+      new_x = amp*Math::sin(Math::sqrt(a)*t+phi)
+      new_x_prime = amp*Math::sqrt(a)*Math::cos(Math::sqrt(a)*t+phi)
+      new_x_dbl_prime = -amp*a*Math::sin(Math::sqrt(a)*t+phi)
+
+      set_x(next_time_step,new_x)
+      set_x_prime(next_time_step,new_x_prime)
+      set_x_dbl_prime(next_time_step,new_x_dbl_prime)
     end
 
     # Updates the current state based on the current states of inputs to this node.  
     def update_state
 
-      if(get_layer == 0)
+      if(@layer == 0)
         update_input_state
         return
       end
+
+      # Store time step indices
+      last_time_step = @network.get_step_num
+      next_time_step = last_time_step + 1 
 
       # Calculate sum of inputs
       sum = @input_sum_terms.inject(0){|sum,item| sum+item}
 
       # An oscillator
       #   a: spring constant
-      #   b: damping
-      #   sum: sum of external forces, weighted by connection strength
-
-      dim = 2
+      #   b: damping constant
+      #   sum: sum of external forces (weighted by connection strength)
 
       # Setup system of ODEs to solve
       # x[0]: displacement, x[1]: velocity
@@ -399,38 +423,43 @@ module OscillatorNeuralNetwork
         dxdt[0] = x[1]
         dxdt[1] = (sum - b*x[1] - a*x[0])
       }
+     
+      # Dimension of the ODE system
+      dim = 2
 
       # Create solver
-      gos = GSL::Odeiv::Solver.alloc(GSL::Odeiv::Step::RKF45, [1e-6, 0.0], func, dim)
+      eps_params = [1e-6, 0.0]
+      gos = GSL::Odeiv::Solver.alloc(GSL::Odeiv::Step::RKF45, eps_params, func, dim)
 
       # Set parameters for solving
-      gos.set_params(get_b, sum, get_a)
+      gos.set_params(get_b(last_time_step), sum, get_a(last_time_step))
       t = @network.get_current_time 
       t1 = t + @network.get_time_step
       h = 1e-6
 
-      # Initial guess vector
-      #TODO``
-      x = GSL::Vector.alloc([get_x,get_x_prime])
+      # Initial conditions vector (values from the last time step)
+      x = GSL::Vector.alloc([get_x(last_time_step),get_x_prime(last_time_step)])
 
       GSL::ieee_env_setup()
 
       # Apply solver
-      # TODO
       while t < t1
         t, h, status = gos.apply(t, t1, h, x)
       end
 
-      set_x(x[0])
-      set_x_prime(x[1])
+      # Set new state variables
+      set_x(next_time_step,x[0])
+      set_x_prime(next_time_step,x[1])
+      set_x_dbl_prime(next_time_step,sum-b*x[1]-a*x[0])
     end
 
     # Propagates the node's current x to all of its out_conns
     def propagate
+      curr_step = @network.get_step_num
       # Iterate through all outgoing connections
       @out_conns.each_key do |receiver|
         # Calculate the term of the sum corresponding to the propagating node
-        term = @out_conns[receiver] * (get_x - receiver.get_x)
+        term = @out_conns[receiver] * (get_x(curr_step)-receiver.get_x(curr_step)
         # Insert the term in the receiver's registry
         receiver.input_sum_terms << term
       end
