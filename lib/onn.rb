@@ -209,11 +209,41 @@ module OscillatorNeuralNetwork
     end
 
     # Uses fourier/wavelet transform to get dominant frequency, amplitude
-    #  data_mat: a matrix of data vectors over time for all output nodes
-    def fourier_analyze(data_mat)
+    #  data_arr: an array of data GSL::Matrices over time for all output nodes
+    def fourier_analyze(data_arr)
       amps, freqs = []
 
-      # TODO write this function
+      # Pull out sequential x values over time for each output node
+      x_vals = GSL::Matrix.alloc(@num_outputs,data_arr.size)
+      snapshot_index = 0
+      row_index = 0
+      data_arr.each do |snapshot|
+        snapshot.each_row do |row|
+          xvals[row_index][snapshot_index] = row[2]
+          row_index += 1
+        end
+        row_index = 0
+        snapshot_index += 1
+      end
+
+      # Perform FFT on each row of x_vals Matrix
+      fft_vals = GSL::Matrix.alloc(@num_outputs,data_arr.size)
+      row_index = 0
+      x_vals.each_row do |row|
+        row_fft = row.fft
+        fft_vals.set_row(row_index, row_fft)
+        row_fft2 =  row_fft.subvector(1, row.len).to_complex2
+        amps << row_fft2.abs
+        freqs << row_fft2.arg
+        row_index += 1
+      end
+
+      # Graph for inspection
+      amps.each_index do |index|
+        f = GSL::Vector.linspace(0,data_arr.size, amps[index].size)
+        GSL::graph(f, amps[index], "-C -g 3 -x 0 200 -X 'Frequency [Hz]'")
+      end
+
       return [amps, freqs]
     end
 
