@@ -88,14 +88,11 @@ module OscillatorNeuralNetwork
     # initial conditions of the system (stored in @eval_steps)
     def eval_over_time
       @states = []
-      @eval_steps.times do
-        @states << eval
-      end
+      @eval_steps.times { eval } 
     end
 
     # Evaluates the network's output state by propagating the current input states through the network.
-    # Evaluates over one time step and returns the set of outputs corresponding to the next time step.
-    # Also increments the time step after updating the states.
+    # Evaluates over one time step, then increments the time step after updating the states.
     def eval
       @nodes.each do |node|         # Each node tells its state to nodes it is connected to
         node.propagate
@@ -104,13 +101,13 @@ module OscillatorNeuralNetwork
         node.update_state           # Calculate and update the node states
       end
       @curr_time = increment_time   # Increment the time
-      return get_states             # Return Matrix of current node states 
     end
 
     # Error weighting function. Calculates a Euclidean-style weighted error measure of the output.
     #   expected: the expected/desired result (GSL::Matrix of data)
     def weighted_error(expected)
       w_err = 0.0
+      # TODO update calls to fourier_analyze, etc to reflect new history storage structure
       result_amps, result_freqs = fourier_analyze
       result_amps.each_index do |node_index|
         amp_term = result_amps[node_index] - amp_from_vec(expected[node_index])
@@ -126,6 +123,7 @@ module OscillatorNeuralNetwork
     # GA fitness function. Takes a nodelist and returns a weighted error calculation of the result
     # compared with the expected/desired result by evaluating the network.
     #   chromosome: a list of OscillatorNeurons 
+    # TODO fix
     def fitness(chromosome)
       @nodes = chromosome
       output = eval_over_time
@@ -137,6 +135,7 @@ module OscillatorNeuralNetwork
     #  chromosome: a nodelist (list of Oscillator Neurons divided into layers)
     #  mutation_rate: parameter describing the rate of mutation (chance of random mutation)
     # Returns the mutated chromosome
+    # TODO fix
     def mutate(chromosome, mutation_rate)
       chromosome.each do |node|
           # Add random mutations with chance mutation_rate
@@ -150,7 +149,8 @@ module OscillatorNeuralNetwork
 
 #### Miscellaneous helper functions ####
  
-    # Plots the output's x values over time
+    # Plots a node's x values over time
+    # TODO fix with new history storage sturcture
     def plot_x_over_time
       x_vals = extract_x_vals
       t = GSL::Vector.linspace(0,@output_states.size*@t_step,1000)
@@ -164,6 +164,7 @@ module OscillatorNeuralNetwork
     # Calculates good guesses of a time step to use based on the minimum a (spring constant)
     # and the number of steps to evaluate the network until returning the output states.
     # Returns both values in the order t_step, eval_steps
+    # TODO fix with new get_a methods, etc. and check it over
     def calc_time_vars(t_step_param,eval_steps_param)
       min_a = max_a = @nodes[0].get_a
       @nodes.each do |node|
@@ -197,6 +198,7 @@ module OscillatorNeuralNetwork
     end
 
     # Retreives the current node states as a Matrix of row GSL::Vectors of data (ordered)
+    # TODO is this the way we want to do it? do we want a "get all current stateS" method? what for?
     def get_states
       states = GSL::Matrix.alloc(@nodes.size,@nodes[0].state_vector.len) 
       counter = 0
@@ -209,6 +211,7 @@ module OscillatorNeuralNetwork
 
     # Sets the input nodes to different oscillator data
     #   new_input_data: a GSL::Matrix of oscillator data vectors, one for each input node, in order
+    # TODO fix this to match with oscillatorNeuron data structure
     def change_input(new_input_data)
       node_counter = 0
       new_input_data.each_row do |row|
@@ -217,6 +220,7 @@ module OscillatorNeuralNetwork
       end
     end
 
+    # TODO fix this to fit in with new ON Matrix history data structure thingy
     def extract_x_vals
       x_vals = GSL::Matrix.alloc(@num_outputs,@output_states.size)
       snapshot_index = 0
@@ -234,6 +238,7 @@ module OscillatorNeuralNetwork
 
     # Uses fourier/wavelet transform to get dominant frequency, amplitude
     #  data_arr: an array of data GSL::Matrices over time for all output nodes
+    # TODO fix this to take inputs, not use global var etc
     def fourier_analyze
       amps = freqs = []
 
