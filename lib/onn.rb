@@ -424,6 +424,7 @@ module OscillatorNeuralNetwork
       # Apply solver
       while t < t1
         t, h, status = gos.apply(t, t1, h, x)
+        break if status != GSL::SUCCESS
       end
 
       # Set new state variables
