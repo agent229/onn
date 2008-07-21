@@ -22,12 +22,11 @@ module OscillatorNeuralNetwork
     attr_reader :seed           # PRNG seed governing all uses of "rand"
     attr_reader :connections    # Connections Matrix
     attr_reader :curr_time      # Current simulated time
-    attr_reader :states         # An array of Matrices, one Matrix per node,
-                                # which contains history of states of that node
+    attr_reader :curr_step      # Current time step
 
     DEFAULT_MUTATION_RATE = 0.4
-    DEFAULT_T_STEP_PARAM = 0.2    # Default/suggested settings for parameters
-    DEFAULT_NUM_EVALS_PARAM = 100
+    DEFAULT_T_STEP_PARAM = 0.02    # Default/suggested settings for parameters
+    DEFAULT_NUM_EVALS_PARAM = 300
     DEFAULT_SEED = 0
 
 #### Class method(s) ####
@@ -64,11 +63,12 @@ module OscillatorNeuralNetwork
     def initialize(node_data, connections, num_outputs, seed=DEFAULT_SEED, t_step_param=DEFAULT_T_STEP_PARAM, num_evals_param=DEFAULT_NUM_EVALS_PARAM)
       @seed = seed
       @num_outputs = num_outputs
-      @connections = connections.clone                                     # Store connections GSL::Matrix
-      @nodes = create_node_list(node_data)                                 # Initialize network of nodes by layer
-      @curr_time = 0.0                                                     # Set current time to 0
-      srand(seed)                                                          # Seed PRNG for this run
-      @t_step, @eval_steps = calc_time_vars(t_step_param, num_evals_param) # Calculate appropriate time step, number of time steps
+      @connections = connections.clone                                              # Store connections GSL::Matrix
+      @t_step, @eval_steps = calc_time_vars(node_data,t_step_param,num_evals_param) # Calculate appropriate time step, number of time steps
+      @nodes = create_node_list(node_data)                                          # Initialize network of nodes by layer
+      @curr_time = 0.0                                                              # Set current time to 0
+      @curr_step = 0
+      srand(seed)                                                                   # Seed PRNG for this run
     end
 
     # Creates the list of OscillatorNeuron objects which contain the data 
@@ -87,8 +87,7 @@ module OscillatorNeuralNetwork
     # The number of times it is called is determined by parameters and
     # initial conditions of the system (stored in @eval_steps)
     def eval_over_time
-      @states = []
-      @eval_steps.times { eval } 
+      (@eval_steps-1).times { eval } 
     end
 
     # Evaluates the network's output state by propagating the current input states through the network.
@@ -107,8 +106,8 @@ module OscillatorNeuralNetwork
     #   expected: the expected/desired result (GSL::Matrix of data)
     def weighted_error(expected)
       w_err = 0.0
-      # TODO update calls to fourier_analyze, etc to reflect new history storage structure
-      result_amps, result_freqs = fourier_analyze
+      output_states = get_states(@nodes.size-@num_outputs,@nodes.size)
+      result_amps, result_freqs = fourier_analyze(output_states)
       result_amps.each_index do |node_index|
         amp_term = result_amps[node_index] - amp_from_vec(expected[node_index])
         freq_term = result_freqs[node_index] - freq_from_vec(expected[node_index])
@@ -148,34 +147,41 @@ module OscillatorNeuralNetwork
     end
 
 #### Miscellaneous helper functions ####
+
+    # Returns an array of states matrices from nodes beginning at beg_ind and ending at
+    # end_ind. If the arguments are left off, returns all state matrices. Preserves order.
+    def get_states(beg_ind=0, end_ind=@nodes.length)
+      states = []
+      (end_ind-beg_ind).times do |ind|
+        states << @nodes[ind].states_matrix 
+      end
+      return states
+    end
  
     # Plots a node's x values over time
-    # TODO fix with new history storage sturcture
-    def plot_x_over_time
-      x_vals = extract_x_vals
-      t = GSL::Vector.linspace(0,@output_states.size*@t_step,1000)
-      row_index = 0
-      x_vals.each_row do |row|
-        GSL::graph(t,row,"-T png -C -L 'Waveform' > xvals#{row_index}.png")
-        row_index += 1
-      end
+    #   data: the GSL::Matrix describing the node's history
+    def plot_x_over_time(node_num)
+      data = @nodes[node_num].states_matrix
+      x_vals = data.col(2) 
+      t = GSL::Vector.linspace(0,@eval_steps*@t_step,@eval_steps)
+      x_vals.graph(t,"-T png -C -L 'Waveform: Node #{node_num}' > xvals#{node_num}.png")
     end
 
     # Calculates good guesses of a time step to use based on the minimum a (spring constant)
     # and the number of steps to evaluate the network until returning the output states.
     # Returns both values in the order t_step, eval_steps
-    # TODO fix with new get_a methods, etc. and check it over
-    def calc_time_vars(t_step_param,eval_steps_param)
-      min_a = max_a = @nodes[0].get_a
-      @nodes.each do |node|
-        if(node.get_a < min_a)
-          min_a = node.get_a
-        end
-        if(node.get_a > max_a)
-          max_a = node.get_a
-        end
+    def calc_time_vars(node_data,t_step_param,eval_steps_param)
+      a_vals = node_data.col(0)
+      a_inv_vals = GSL::Vector.alloc(a_vals.len)
+      ind = 0
+      a_vals.each do |val|
+        a_inv_vals[ind] = 1/val
+        ind += 1
       end
-      return (min_a * t_step_param), (max_a * eval_steps_param).round
+      periods = 2*GSL::M_PI*a_inv_vals.sqrt
+      min_period = periods.min 
+      max_period = periods.max
+      return (min_period * t_step_param), (max_period * eval_steps_param).round
     end
 
     # Stores connection information from the connections matrix into the nodes.
@@ -197,68 +203,39 @@ module OscillatorNeuralNetwork
       return nodes
     end
 
-    # Retreives the current node states as a Matrix of row GSL::Vectors of data (ordered)
-    # TODO is this the way we want to do it? do we want a "get all current stateS" method? what for?
-    def get_states
-      states = GSL::Matrix.alloc(@nodes.size,@nodes[0].state_vector.len) 
-      counter = 0
-      @nodes.each_index do |node_index|
-          states.set_row(counter, @nodes[node_index].state_vector)
-          counter += 1
-      end
-      return states
-    end
-
     # Sets the input nodes to different oscillator data
     #   new_input_data: a GSL::Matrix of oscillator data vectors, one for each input node, in order
-    # TODO fix this to match with oscillatorNeuron data structure
     def change_input(new_input_data)
       node_counter = 0
       new_input_data.each_row do |row|
-        @nodes[node_counter].state_vector = row.clone
+        @nodes[node_counter].state_matrix.set_row(get_curr_step, row.clone)
         node_counter += 1
       end
     end
 
-    # TODO fix this to fit in with new ON Matrix history data structure thingy
-    def extract_x_vals
-      x_vals = GSL::Matrix.alloc(@num_outputs,@output_states.size)
-      snapshot_index = 0
-      row_index = 0
-      @output_states.each do |snapshot|
-        snapshot.each_row do |row|
-          x_vals[row_index][snapshot_index] = row[2]
-          row_index += 1
-        end
-        row_index = 0
-        snapshot_index += 1
-      end
-      return x_vals
-    end
-
     # Uses fourier/wavelet transform to get dominant frequency, amplitude
     #  data_arr: an array of data GSL::Matrices over time for all output nodes
-    # TODO fix this to take inputs, not use global var etc
-    def fourier_analyze
+    def fourier_analyze(states)
       amps = freqs = []
 
+      x_vals = GSL::Matrix.alloc(states.size,states[0].size1)
+
       # Pull out sequential x values over time for each output node
-      x_vals = extract_x_vals
+      node_index = 0
+      states.each do |node_data|
+        x_vals.set_row(node_index,node_data.col(2))
+        node_index += 1
+      end
 
       # Perform FFT on each row of x_vals Matrix
-      fft_vals = GSL::Matrix.alloc(@num_outputs,@output_states.size)
-      row_index = 0
       x_vals.each_row do |row|
         row_fft = row.fft
-        fft_vals.set_row(row_index, row_fft)
         row_fft2 =  row_fft.subvector(1, row.len-1).to_complex2
         amps << row_fft2.abs
         freqs << row_fft2.arg
-        row_index += 1
       end
  
       # Graph for inspection
-      # TODO figure out why amps had two rows....
       amps.each_index do |index|
         f = GSL::Vector.linspace(0, 10, amps[index].size)
         GSL::graph(f, amps[index], "-T png -C -L 'Frequency [Hz]' > fft#{index}.png")
@@ -291,10 +268,11 @@ module OscillatorNeuralNetwork
 
     def increment_time
       @curr_time += @t_step
+      @curr_step += 1
     end
 
-    def get_time_step
-      @curr_time/@t_step
+    def get_curr_step
+      @curr_step
     end 
 
   end
@@ -318,7 +296,7 @@ module OscillatorNeuralNetwork
     #   network_ref: a reference to the network containing this neuron
     def initialize(state_vec, network_ref)
       # Set state vector as first row in states_matrix
-      @states_matrix = GSL::Matrix.alloc(network_ref.eval_steps,state_vec.len-1)
+      @states_matrix = GSL::Matrix.alloc(network_ref.eval_steps, state_vec.len-1)
       @layer = state_vec.pop 
       @states_matrix.set_row(0, state_vec)
 
@@ -379,10 +357,11 @@ module OscillatorNeuralNetwork
     #   where A = sqrt(x_prime^2+x^2), phi = arctan(x/x_prime)
     # Stores all of the new states in the next state vector
     def update_input_state
-      last_time_step = @network.get_step_num
-      next_time_step = @network.get_step_num + 1
-
+      last_time_step = @network.get_curr_step
+      next_time_step = last_time_step + 1
+      
       a = get_a(last_time_step)
+      b = get_b(last_time_step)
       x = get_x(last_time_step)
       x_prime = get_x_prime(last_time_step)
       t = @network.get_current_time
@@ -397,6 +376,8 @@ module OscillatorNeuralNetwork
       set_x(next_time_step,new_x)
       set_x_prime(next_time_step,new_x_prime)
       set_x_dbl_prime(next_time_step,new_x_dbl_prime)
+      set_a(next_time_step,a)
+      set_b(next_time_step,b)
     end
 
     # Updates the current state based on the current states of inputs to this node.  
@@ -408,7 +389,7 @@ module OscillatorNeuralNetwork
       end
 
       # Store time step indices
-      last_time_step = @network.get_step_num
+      last_time_step = @network.get_curr_step
       next_time_step = last_time_step + 1 
 
       # Calculate sum of inputs
@@ -437,7 +418,9 @@ module OscillatorNeuralNetwork
       gos = GSL::Odeiv::Solver.alloc(GSL::Odeiv::Step::RKF45, eps_params, func, dim)
 
       # Set parameters for solving
-      gos.set_params(get_b(last_time_step), sum, get_a(last_time_step))
+      a = get_a(last_time_step)
+      b = get_b(last_time_step)
+      gos.set_params(b, sum, a)
       t = @network.get_current_time 
       t1 = t + @network.get_time_step
       h = 1e-6
@@ -453,18 +436,21 @@ module OscillatorNeuralNetwork
       end
 
       # Set new state variables
+      set_a(next_time_step,a)
+      set_b(next_time_step,b)
       set_x(next_time_step,x[0])
       set_x_prime(next_time_step,x[1])
       set_x_dbl_prime(next_time_step,sum-b*x[1]-a*x[0])
+      @input_sum_terms = []
     end
 
     # Propagates the node's current x to all of its out_conns
     def propagate
-      curr_step = @network.get_step_num
+      curr_step = @network.get_curr_step
       # Iterate through all outgoing connections
       @out_conns.each_key do |receiver|
         # Calculate the term of the sum corresponding to the propagating node
-        term = @out_conns[receiver] * (get_x(curr_step)-receiver.get_x(curr_step)
+        term = @out_conns[receiver] * (get_x(curr_step)-receiver.get_x(curr_step))
         # Insert the term in the receiver's registry
         receiver.input_sum_terms << term
       end
