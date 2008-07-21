@@ -229,8 +229,8 @@ module OscillatorNeuralNetwork
       freq = fft2.arg
  
       # Graph for inspection
-      f = GSL::Vector.linspace(0, 10, 10)
-      fgraph(amp, "-T png -C -L 'Node #{node_index}: Frequency [Hz]' > fft#{node_index}.png")
+      f = GSL::Vector.linspace(0, 100 ,amp.len)
+      GSL::graph(f, amp, "-T png -C -L 'Node #{node_index}: Frequency [Hz]' > fft#{node_index}.png")
 
       return amp, freq
     end
@@ -424,7 +424,7 @@ module OscillatorNeuralNetwork
       # Apply solver
       while t < t1
         t, h, status = gos.apply(t, t1, h, x)
-        break if status != GSL::SUCCESS
+        false_catcher if status != GSL::SUCCESS
       end
 
       # Set new state variables
@@ -434,6 +434,10 @@ module OscillatorNeuralNetwork
       set_x_prime(next_time_step,x[1])
       set_x_dbl_prime(next_time_step,sum-b*x[1]-a*x[0])
       @input_sum_terms = []
+    end
+
+    def false_catcher
+      puts "false value detected"
     end
 
     # Propagates the node's current x to all of its out_conns
