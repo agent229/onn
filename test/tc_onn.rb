@@ -38,8 +38,9 @@ class TestONN < Test::Unit::TestCase
     @net.plot_x_over_time(1)
     @net.plot_x_over_time(2)
     @net.plot_x_over_time(3)
-    #expected = GSL::Matrix[[0,0,0,0,0,0],[0,0,0,0,0,0]] # TODO put in expected results
-    #err = @net.weighted_error(expected)
+    @net.fourier_analyze(1)
+#    expected = GSL::Matrix[[0,0,0,0,0,0],[0,0,0,0,0,0]] # TODO put in expected results
+#    err = @net.weighted_error(expected)
   end
 
 end

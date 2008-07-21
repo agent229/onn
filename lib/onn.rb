@@ -106,8 +106,12 @@ module OscillatorNeuralNetwork
     #   expected: the expected/desired result (GSL::Matrix of data)
     def weighted_error(expected)
       w_err = 0.0
-      output_states = get_states(@nodes.size-@num_outputs,@nodes.size)
-      result_amps, result_freqs = fourier_analyze(output_states)
+      result_amps = result_freqs = []
+      @nodes.size-@num_outputs..@nodes.size do |index|
+        result_amps_i, result_freqs_i = fourier_analyze(index)
+        result_amps << result_amps_i
+        result_freqs << result_freqs_i
+      end
       result_amps.each_index do |node_index|
         amp_term = result_amps[node_index] - amp_from_vec(expected[node_index])
         freq_term = result_freqs[node_index] - freq_from_vec(expected[node_index])
@@ -181,7 +185,7 @@ module OscillatorNeuralNetwork
       periods = 2*GSL::M_PI*a_inv_vals.sqrt
       min_period = periods.min 
       max_period = periods.max
-      return (min_period * t_step_param), (max_period * eval_steps_param).round
+      return (min_period * t_step_param), ((max_period*eval_steps_param).round-1)
     end
 
     # Stores connection information from the connections matrix into the nodes.
@@ -214,34 +218,21 @@ module OscillatorNeuralNetwork
     end
 
     # Uses fourier/wavelet transform to get dominant frequency, amplitude
-    #  data_arr: an array of data GSL::Matrices over time for all output nodes
-    def fourier_analyze(states)
-      amps = freqs = []
+    #   node_index: the index of the node to fourier analyze over time
+    def fourier_analyze(node_index)
+      states = @nodes[node_index].states_matrix
+      x_vals = states.col(2).transpose
 
-      x_vals = GSL::Matrix.alloc(states.size,states[0].size1)
-
-      # Pull out sequential x values over time for each output node
-      node_index = 0
-      states.each do |node_data|
-        x_vals.set_row(node_index,node_data.col(2))
-        node_index += 1
-      end
-
-      # Perform FFT on each row of x_vals Matrix
-      x_vals.each_row do |row|
-        row_fft = row.fft
-        row_fft2 =  row_fft.subvector(1, row.len-1).to_complex2
-        amps << row_fft2.abs
-        freqs << row_fft2.arg
-      end
+      fft = x_vals.fft
+      fft2 =  fft.subvector(1,x_vals.len-1).to_complex2
+      amp = fft2.abs
+      freq = fft2.arg
  
       # Graph for inspection
-      amps.each_index do |index|
-        f = GSL::Vector.linspace(0, 10, amps[index].size)
-        GSL::graph(f, amps[index], "-T png -C -L 'Frequency [Hz]' > fft#{index}.png")
-      end
+      f = GSL::Vector.linspace(0, 10, 10)
+      fgraph(amp, "-T png -C -L 'Node #{node_index}: Frequency [Hz]' > fft#{node_index}.png")
 
-      return [amps, freqs]
+      return amp, freq
     end
 
     # Calculates a wave's amplitude based on its state vector
@@ -426,7 +417,7 @@ module OscillatorNeuralNetwork
       h = 1e-6
 
       # Initial conditions vector (values from the last time step)
-      x = GSL::Vector.alloc([get_x(last_time_step),get_x_prime(last_time_step)])
+      x = GSL::Vector[get_x(last_time_step),get_x_prime(last_time_step)]
 
       GSL::ieee_env_setup()
 
