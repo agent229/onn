@@ -26,7 +26,7 @@ module OscillatorNeuralNetwork
 
     DEFAULT_MUTATION_RATE = 0.4
     DEFAULT_T_STEP_PARAM = 0.02    # Default/suggested settings for parameters
-    DEFAULT_NUM_EVALS_PARAM = 300
+    DEFAULT_NUM_EVALS_PARAM = 200 
     DEFAULT_SEED = 0
 
 #### Class method(s) ####
@@ -221,7 +221,7 @@ module OscillatorNeuralNetwork
     #   node_index: the index of the node to fourier analyze over time
     def fourier_analyze(node_index)
       states = @nodes[node_index].states_matrix
-      x_vals = states.col(2).transpose
+      x_vals = states.col(2).transpose.subvector(2*@eval_steps/3.round,@eval_steps/3.round)
 
       fft = x_vals.fft
       fft2 =  fft.subvector(1,x_vals.len-1).to_complex2
@@ -229,8 +229,8 @@ module OscillatorNeuralNetwork
       freq = fft2.arg
  
       # Graph for inspection
-      f = GSL::Vector.linspace(0, 100 ,amp.len)
-      GSL::graph(f, amp, "-T png -C -L 'Node #{node_index}: Frequency [Hz]' > fft#{node_index}.png")
+      f = GSL::Vector.linspace(0, 0.5,amp.len)
+      GSL::graph(freq, amp, "-T png -C -L 'Node #{node_index}: Frequency [Hz]' > fft#{node_index}.png")
 
       return amp, freq
     end
@@ -428,7 +428,7 @@ module OscillatorNeuralNetwork
       # Apply solver
       while t < t1
         t, h, status = gos.apply(t, t1, h, x)
-        false_catcher if status != GSL::SUCCESS
+        break if status != GSL::SUCCESS
       end
 
       # Set new state variables
@@ -438,11 +438,6 @@ module OscillatorNeuralNetwork
       set_x_prime(next_time_step,x[1])
       # set_x_dbl_prime(next_time_step,sum-b*x[1]-a*x[0])
       @input_sum_terms = []
-    end
-
-    def false_catcher
-      puts "false value detected"
-      exit
     end
 
     # Propagates the node's current x to all of its out_conns
