@@ -357,6 +357,7 @@ module OscillatorNeuralNetwork
     #   x_dbl_prime = -A*a*sin(sqrt(a)*t+phi) 
     #   where A = sqrt(x_prime^2+x^2), phi = arctan(x/x_prime)
     # Stores all of the new states in the next state vector
+    # TODO Why isn't this working???
     def update_input_state
       last_time_step = @network.get_curr_step
       next_time_step = last_time_step + 1
@@ -385,10 +386,11 @@ module OscillatorNeuralNetwork
     # Updates the current state based on the current states of inputs to this node.  
     def update_state
 
-      if(@layer == 0)
-        update_input_state
-        return
-      end
+      # TODO uncomment once update_input_state works
+      # if(@layer == 0)
+      #  update_input_state
+      #  return
+      # end
 
       # Store time step indices
       last_time_step = @network.get_curr_step
