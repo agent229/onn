@@ -87,19 +87,19 @@ module OscillatorNeuralNetwork
     # The number of times it is called is determined by parameters and
     # initial conditions of the system (stored in @eval_steps)
     def eval_over_time
-      (@eval_steps-1).times { eval } 
+      (@eval_steps-1).times do eval end 
     end
 
     # Evaluates the network's output state by propagating the current input states through the network.
     # Evaluates over one time step, then increments the time step after updating the states.
     def eval
-      @nodes.each do |node|         # Each node tells its state to nodes it is connected to
+      @nodes.each do |node|  # Each node tells its state to nodes it is connected to
         node.propagate
       end
       @nodes.each do |node|
-        node.update_state           # Calculate and update the node states
+        node.update_state    # Calculate and update the node states
       end
-      @curr_time = increment_time   # Increment the time
+      increment_time         # Increment the time
     end
 
     # Error weighting function. Calculates a Euclidean-style weighted error measure of the output.
@@ -282,13 +282,23 @@ module OscillatorNeuralNetwork
     attr_accessor :out_conns
     attr_accessor :layer
 
+    # Setup system of ODEs to solve
+    # x[0]: displacement, x[1]: velocity
+    $func = Proc.new { |t, x, dxdt, params|
+      b = params[0] 
+      sum = params[1] 
+      a = params[2]
+      dxdt[0] = x[1]
+      dxdt[1] = (sum - b*x[1] - a*x[0])
+    }
+
     # Initialize a new OscillatorNeuron by passing a "natural state" hash.
     #   state_vec: a GSL::Vector describing the state as given above
     #   network_ref: a reference to the network containing this neuron
     def initialize(state_vec, network_ref)
       # Set state vector as first row in states_matrix
       @states_matrix = GSL::Matrix.alloc(network_ref.eval_steps, state_vec.len-1)
-      @layer = state_vec.pop 
+      @layer = state_vec.pop.to_i
       @states_matrix.set_row(0, state_vec)
 
       # Reserve space for other instance variables
@@ -356,17 +366,18 @@ module OscillatorNeuralNetwork
       x = get_x(last_time_step)
       x_prime = get_x_prime(last_time_step)
       t = @network.get_current_time
+      t_next = t + @network.get_time_step
 
-      amp = GSL::hypot(x_prime, x)
+      amp = GSL::hypot(x_prime,x)
       phi = Math::atan(x/x_prime)
 
-      new_x = amp*Math::sin(Math::sqrt(a)*t+phi)
-      new_x_prime = amp*Math::sqrt(a)*Math::cos(Math::sqrt(a)*t+phi)
-      new_x_dbl_prime = -amp*a*Math::sin(Math::sqrt(a)*t+phi)
+      new_x = amp*Math::sin(Math::sqrt(a)*t_next+phi)
+      new_x_prime = amp*Math::sqrt(a)*Math::cos(Math::sqrt(a)*t_next+phi)
+      # new_x_dbl_prime = -a*new_x
 
       set_x(next_time_step,new_x)
       set_x_prime(next_time_step,new_x_prime)
-      set_x_dbl_prime(next_time_step,new_x_dbl_prime)
+      # set_x_dbl_prime(next_time_step,new_x_dbl_prime)
       set_a(next_time_step,a)
       set_b(next_time_step,b)
     end
@@ -391,22 +402,13 @@ module OscillatorNeuralNetwork
       #   b: damping constant
       #   sum: sum of external forces (weighted by connection strength)
 
-      # Setup system of ODEs to solve
-      # x[0]: displacement, x[1]: velocity
-      func = Proc.new { |t, x, dxdt, params|
-        b = params[0] 
-        sum = params[1] 
-        a = params[2]
-        dxdt[0] = x[1]
-        dxdt[1] = (sum - b*x[1] - a*x[0])
-      }
-     
       # Dimension of the ODE system
       dim = 2
 
       # Create solver
       eps_params = [1e-6, 0.0]
-      gos = GSL::Odeiv::Solver.alloc(GSL::Odeiv::Step::RKF45, eps_params, func, dim)
+      gos = GSL::Odeiv::Solver.alloc(GSL::Odeiv::Step::RKF45, eps_params, $func, dim)
+      false_catcher if !(gos.kind_of?(GSL::Odeiv::Solver))
 
       # Set parameters for solving
       a = get_a(last_time_step)
@@ -419,7 +421,7 @@ module OscillatorNeuralNetwork
       # Initial conditions vector (values from the last time step)
       x = GSL::Vector[get_x(last_time_step),get_x_prime(last_time_step)]
 
-      GSL::ieee_env_setup()
+      # GSL::ieee_env_setup()
 
       # Apply solver
       while t < t1
@@ -432,12 +434,13 @@ module OscillatorNeuralNetwork
       set_b(next_time_step,b)
       set_x(next_time_step,x[0])
       set_x_prime(next_time_step,x[1])
-      set_x_dbl_prime(next_time_step,sum-b*x[1]-a*x[0])
+      # set_x_dbl_prime(next_time_step,sum-b*x[1]-a*x[0])
       @input_sum_terms = []
     end
 
     def false_catcher
       puts "false value detected"
+      exit
     end
 
     # Propagates the node's current x to all of its out_conns
