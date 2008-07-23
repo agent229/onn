@@ -25,7 +25,7 @@ module OscillatorNeuralNetwork
     attr_reader :curr_step      # Current time step
 
     DEFAULT_MUTATION_RATE = 0.4
-    DEFAULT_NUM_EVALS_PARAM = 5000 
+    DEFAULT_NUM_EVALS_PARAM = 500 
     DEFAULT_SEED = 0
 
 #### Class method(s) ####
@@ -166,7 +166,7 @@ module OscillatorNeuralNetwork
       data = @nodes[node_num].states_matrix
       x_vals = data.col(2) 
       t = GSL::Vector.linspace(0,@eval_steps*@t_step,@eval_steps)
-      x_vals.graph(t,"-T png -C -L 'Waveform: Node #{node_num}' > xvals#{node_num}.png")
+      x_vals.graph(t,"-T png -C -X 'Time' -Y 'X' -L 'Waveform: Node #{node_num}' > xvals#{node_num}.png")
     end
 
     # Calculates good guesses of a time step to use based on the minimum a (spring constant)
@@ -178,7 +178,7 @@ module OscillatorNeuralNetwork
       ones = GSL::Vector.alloc(freq_vals.len).set_all(1)
       quotients = ones/(2*freq_vals)
       min_quotient = quotients.min
-      t_step = 0.9*min_quotient
+      t_step = 0.4*min_quotient
       periods = quotients*2 
       max_period = periods.max
       return t_step, ((max_period*eval_steps_param).round-1)
@@ -234,7 +234,7 @@ module OscillatorNeuralNetwork
 
       f = GSL::Vector.linspace(0,fs/2,fft_norm.size) 
       # Graph for inspection
-      GSL::graph(f,fft_norm.abs, "-T png -C -L 'Node #{node_index}: Frequency [Hz]' > fft#{node_index}.png")
+      GSL::graph(f,fft_norm.abs, "-T png -C -X 'Frequency (Hz)' -Y 'Amplitude' -L 'Node #{node_index} Scaled FFT' > fft#{node_index}.png")
       dom_amp = fft_norm.abs.max
       dom_freq = f[fft_norm.abs.max_index]
       puts "node #{node_index} amp: " + dom_amp.to_s
