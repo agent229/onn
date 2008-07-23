@@ -25,8 +25,8 @@ module OscillatorNeuralNetwork
     attr_reader :curr_step      # Current time step
 
     DEFAULT_MUTATION_RATE = 0.4
-    DEFAULT_T_STEP_PARAM = 0.02    # Default/suggested settings for parameters
-    DEFAULT_NUM_EVALS_PARAM = 200 
+    DEFAULT_T_STEP_PARAM = 0.01    # Default/suggested settings for parameters
+    DEFAULT_NUM_EVALS_PARAM = 500 
     DEFAULT_SEED = 0
 
 #### Class method(s) ####
@@ -106,13 +106,14 @@ module OscillatorNeuralNetwork
     #   expected: the expected/desired result (GSL::Matrix of data)
     def weighted_error(expected)
       w_err = 0.0
-      result_amps = result_freqs = []
+      result_mags = result_phases = []
       @nodes.size-@num_outputs..@nodes.size do |index|
-        result_amps_i, result_freqs_i = fourier_analyze(index)
-        result_amps << result_amps_i
-        result_freqs << result_freqs_i
+        result_mags_i, result_phases_i = fourier_analyze(index)
+        result_mags << result_mags_i
+        result_phases << result_phases_i
       end
-      result_amps.each_index do |node_index|
+      # TODO this is not right, but maybe just needs modifying in the fourier function
+      result_mags.each_index do |node_index|
         amp_term = result_amps[node_index] - amp_from_vec(expected[node_index])
         freq_term = result_freqs[node_index] - freq_from_vec(expected[node_index])
         w_err += GSL::hypot(amp_term, freq_term)
@@ -221,18 +222,28 @@ module OscillatorNeuralNetwork
     #   node_index: the index of the node to fourier analyze over time
     def fourier_analyze(node_index)
       states = @nodes[node_index].states_matrix
-      x_vals = states.col(2).transpose.subvector(2*@eval_steps/3.round,@eval_steps/3.round)
+      offset = (states.size1/3).floor
+      subvec_len = 2*offset
+      x_vals = states.col(2).transpose.subvector(offset,subvec_len)
 
+      fs = 1/@t_step
+      n = x_vals.len
+      k = GSL::Vector.indgen(n)
+      t = n/fs
+      freq = k/t
       fft = x_vals.fft
-      fft2 =  fft.subvector(1,x_vals.len-1).to_complex2
-      amp = fft2.abs
-      freq = fft2.arg
- 
-      # Graph for inspection
-      f = GSL::Vector.linspace(0, 0.5,amp.len)
-      GSL::graph(freq, amp, "-T png -C -L 'Node #{node_index}: Frequency [Hz]' > fft#{node_index}.png")
+      fft2 = fft.subvector(1,n-2).to_complex2
+      fft_norm = fft2/fft2.len
 
-      return amp, freq
+      f = GSL::Vector.linspace(0,fs/2,fft_norm.size) 
+      # Graph for inspection
+      GSL::graph(f,fft_norm.abs, "-T png -C -L 'Node #{node_index}: Frequency [Hz]' > fft#{node_index}.png")
+      dom_amp = fft_norm.abs.max
+      dom_freq = f[fft_norm.abs.max_index]
+      puts "node #{node_index} amp: " + dom_amp.to_s
+      puts "node #{node_index} freq: " + dom_freq.to_s
+
+      return dom_amp, dom_freq
     end
 
     # Calculates a wave's amplitude based on its state vector
@@ -386,10 +397,9 @@ module OscillatorNeuralNetwork
     # Updates the current state based on the current states of inputs to this node.  
     def update_state
 
-      # TODO uncomment once update_input_state works
       # if(@layer == 0)
-      #  update_input_state
-      #  return
+      #   update_input_state
+      #   return
       # end
 
       # Store time step indices
@@ -410,7 +420,6 @@ module OscillatorNeuralNetwork
       # Create solver
       eps_params = [1e-6, 0.0]
       gos = GSL::Odeiv::Solver.alloc(GSL::Odeiv::Step::RKF45, eps_params, $func, dim)
-      false_catcher if !(gos.kind_of?(GSL::Odeiv::Solver))
 
       # Set parameters for solving
       a = get_a(last_time_step)
