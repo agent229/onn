@@ -25,8 +25,7 @@ module OscillatorNeuralNetwork
     attr_reader :curr_step      # Current time step
 
     DEFAULT_MUTATION_RATE = 0.4
-    DEFAULT_T_STEP_PARAM = 0.01    # Default/suggested settings for parameters
-    DEFAULT_NUM_EVALS_PARAM = 500 
+    DEFAULT_NUM_EVALS_PARAM = 5000 
     DEFAULT_SEED = 0
 
 #### Class method(s) ####
@@ -58,13 +57,12 @@ module OscillatorNeuralNetwork
     #   connections:     a GSL::Matrix of connection strengths. ijth entry is connection from node i to node j
     #   num_outputs:     the number of outputs that will exist in the network
     #   seed:            a PRNG seed governing all PRNG uses in this run (for repeatability)
-    #   t_step_param:    parameter to be used in simulation to help decide time step (scales the minimum period)
     #   num_evals_param: parameter used to decide how many evaluations to complete before evaluating outputs
-    def initialize(node_data, connections, num_outputs, seed=DEFAULT_SEED, t_step_param=DEFAULT_T_STEP_PARAM, num_evals_param=DEFAULT_NUM_EVALS_PARAM)
+    def initialize(node_data, connections, num_outputs, seed=DEFAULT_SEED, num_evals_param=DEFAULT_NUM_EVALS_PARAM)
       @seed = seed
       @num_outputs = num_outputs
       @connections = connections.clone                                              # Store connections GSL::Matrix
-      @t_step, @eval_steps = calc_time_vars(node_data,t_step_param,num_evals_param) # Calculate appropriate time step, number of time steps
+      @t_step, @eval_steps = calc_time_vars(node_data,num_evals_param) # Calculate appropriate time step, number of time steps
       @nodes = create_node_list(node_data)                                          # Initialize network of nodes by layer
       @curr_time = 0.0                                                              # Set current time to 0
       @curr_step = 0
@@ -106,14 +104,13 @@ module OscillatorNeuralNetwork
     #   expected: the expected/desired result (GSL::Matrix of data)
     def weighted_error(expected)
       w_err = 0.0
-      result_mags = result_phases = []
+      result_amps = result_freqs = []
       @nodes.size-@num_outputs..@nodes.size do |index|
-        result_mags_i, result_phases_i = fourier_analyze(index)
-        result_mags << result_mags_i
-        result_phases << result_phases_i
+        result_amps_i, result_freqs_i = fourier_analyze(index)
+        result_ampss << result_amps_i
+        result_freqs << result_freqs_i
       end
-      # TODO this is not right, but maybe just needs modifying in the fourier function
-      result_mags.each_index do |node_index|
+      result_amps.each_index do |node_index|
         amp_term = result_amps[node_index] - amp_from_vec(expected[node_index])
         freq_term = result_freqs[node_index] - freq_from_vec(expected[node_index])
         w_err += GSL::hypot(amp_term, freq_term)
@@ -175,18 +172,16 @@ module OscillatorNeuralNetwork
     # Calculates good guesses of a time step to use based on the minimum a (spring constant)
     # and the number of steps to evaluate the network until returning the output states.
     # Returns both values in the order t_step, eval_steps
-    def calc_time_vars(node_data,t_step_param,eval_steps_param)
+    def calc_time_vars(node_data,eval_steps_param)
       a_vals = node_data.col(0)
-      a_inv_vals = GSL::Vector.alloc(a_vals.len)
-      ind = 0
-      a_vals.each do |val|
-        a_inv_vals[ind] = 1/val
-        ind += 1
-      end
-      periods = 2*GSL::M_PI*a_inv_vals.sqrt
-      min_period = periods.min 
+      freq_vals = a_vals.sqrt/2*GSL::M_PI
+      ones = GSL::Vector.alloc(freq_vals.len).set_all(1)
+      quotients = ones/(2*freq_vals)
+      min_quotient = quotients.min
+      t_step = 0.9*min_quotient
+      periods = quotients*2 
       max_period = periods.max
-      return (min_period * t_step_param), ((max_period*eval_steps_param).round-1)
+      return t_step, ((max_period*eval_steps_param).round-1)
     end
 
     # Stores connection information from the connections matrix into the nodes.
@@ -222,12 +217,14 @@ module OscillatorNeuralNetwork
     #   node_index: the index of the node to fourier analyze over time
     def fourier_analyze(node_index)
       states = @nodes[node_index].states_matrix
+
+      # Select roughly the last 2/3 of the data to analyze to avoid transients
       offset = (states.size1/3).floor
       subvec_len = 2*offset
       x_vals = states.col(2).transpose.subvector(offset,subvec_len)
 
-      fs = 1/@t_step
       n = x_vals.len
+      fs = 1/@t_step
       k = GSL::Vector.indgen(n)
       t = n/fs
       freq = k/t
