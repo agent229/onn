@@ -237,8 +237,6 @@ module OscillatorNeuralNetwork
       GSL::graph(f,fft_norm.abs, "-T png -C -X 'Frequency (Hz)' -Y 'Amplitude' -L 'Node #{node_index} Scaled FFT' > fft#{node_index}.png")
       dom_amp = fft_norm.abs.max
       dom_freq = f[fft_norm.abs.max_index]
-      puts "node #{node_index} amp: " + dom_amp.to_s
-      puts "node #{node_index} freq: " + dom_freq.to_s
 
       return dom_amp, dom_freq
     end
@@ -254,7 +252,7 @@ module OscillatorNeuralNetwork
     #   node_data_vec: a node data vector
     # Returns the wave's frequency 
     def freq_from_vec(node_data_vec)
-      return Math::sqrt(node_data_vec[0]) 
+      return Math::sqrt(node_data_vec[0])/2*GSL::M_PI
     end
 
     def get_time_step

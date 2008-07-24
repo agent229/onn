@@ -12,9 +12,9 @@ class TestONN < Test::Unit::TestCase
 #     @net= GAONN.new(node_data,conns,1)
 
 
-#    node_data = GSL::Matrix[[4*GSL::M_PI*GSL::M_PI,0,1.0,0.2,0,0],[20.0,0,1.0,0.2,0,0],[40.0,0.05,0,0,0,1],[60.0,0.05,0,0,0,1]]
+#    node_data = GSL::Matrix[[4*GSL::M_PI*GSL::M_PI,0,1.0,0.2,0,0],[20.0,0,1.0,0.2,0,0],[40.0,0.05,0,0,0,1],[30.0,0.05,0,0,0,1]]
 #    conns = GSL::Matrix[[0,0,0.1,0.1],[0,0,0.1,0.1],[0,0,0,0],[0,0,0,0]]
-#    @net = GAONN.new(node_data,conns,2,0,0.01,15000)
+#    @net = GAONN.new(node_data,conns,2,0,15000)
 
   #  node_data = GSL::Matrix[[0.9,0,1.0,0.2,0,0],[0.3,0.05,0,0,0,1],[0.7,0.05,0,0,0,1]]
   #  conns = GSL::Matrix[[0,-0.1,-0.1],[0,0,0],[0,0,0]]
@@ -26,7 +26,7 @@ class TestONN < Test::Unit::TestCase
 
     node_data = GSL::Matrix[[0.7,0,1,0,0,0],[0.3,0.1,0,0,0,1],[0.8,0.1,0,0,0,1],[0.2,0.1,0,0,0,2],[0.7,0.1,0,0,0,2]]
     conns = GSL::Matrix[[0,0.4,0.4,0,0],[0,0,0.2,0.4,-0.6],[0,0.2,0,-0.6,0.4],[0,0,0,0,0],[0,0,0,0,0]]
-    @net = GAONN.new(node_data,conns,2) 
+    @net = GAONN.new(node_data,conns,2,0,2000) 
     
   #  node_data = GSL::Matrix[[0.7,0,1,0.1,0,0],[0.7,0.1,0,0,0,1],[0.7,0.2,0,0,0,1],[0.7,0.1,0,0,0,2]]
   #  conns = GSL::Matrix[[0,0.4,0.3,0],[0,0,0,0.4],[0,0,0,0.4],[0,0,0,0]]
@@ -52,9 +52,12 @@ class TestONN < Test::Unit::TestCase
 
   def test_eval
     @net.eval_over_time
+    amps = freqs = []
     @net.nodes.each_index do |index|
       @net.plot_x_over_time(index)
-      @net.fourier_analyze(index)
+      return_vals = @net.fourier_analyze(index)
+      puts "node #{index} amp: " + return_vals[0].to_s
+      puts "node #{index} freq: " + return_vals[1].to_s
     end
 #    expected = GSL::Matrix[[0,0,0,0,0,0],[0,0,0,0,0,0]] # TODO put in expected results
 #    err = @net.weighted_error(expected)
