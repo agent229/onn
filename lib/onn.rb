@@ -104,7 +104,8 @@ module OscillatorNeuralNetwork
     #   expected: the expected/desired result (GSL::Matrix of data)
     def weighted_error(expected)
       w_err = 0.0
-      result_amps = result_freqs = []
+      result_amps = []
+      result_freqs = []
       @nodes.size-@num_outputs..@nodes.size do |index|
         result_amps_i, result_freqs_i = fourier_analyze(index)
         result_ampss << result_amps_i
@@ -234,7 +235,7 @@ module OscillatorNeuralNetwork
 
       f = GSL::Vector.linspace(0,fs/2,fft_norm.size) 
       # Graph for inspection
-      GSL::graph(f,fft_norm.abs, "-T png -C -X 'Frequency (Hz)' -Y 'Amplitude' -L 'Node #{node_index} Scaled FFT' > fft#{node_index}.png")
+      # GSL::graph(f,fft_norm.abs, "-T png -C -X 'Frequency (Hz)' -Y 'Amplitude' -L 'Node #{node_index} Scaled FFT' > fft#{node_index}.png")
       dom_amp = fft_norm.abs.max
       dom_freq = f[fft_norm.abs.max_index]
 
