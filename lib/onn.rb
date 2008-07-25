@@ -1,7 +1,5 @@
-# This is an implementation of oscillator neural networks which uses a genetic
-# algorithm as the learning rule. It learns by adjusting either individual connection weights
-# or the "natural" properties of the oscillators, depending on the need of the user.
-# (Loosely) based on the neural network from the ai4r library.
+# This is an implementation of oscillator neural networks which can update its own state, 
+# plot various things about its state.
 
 module OscillatorNeuralNetwork
  
@@ -12,11 +10,9 @@ module OscillatorNeuralNetwork
   # For Ruby/GSL scientific library (vectors, matrices, graphing)
   require 'gsl'
 
-  # "Genetic algorithm oscillator neural network" (GAONN) class definition describes an
-  # entire network object through a list of nodes and some parameters
-  class GAONN 
+  class ONN 
   
-    attr_accessor :nodes        # An array of OscillatorNeuron objects
+    attr_accessor :nodes        # An array of OscillatorNode objects
     attr_reader :t_step         # time step
     attr_reader :eval_steps     # number of steps to run net
     attr_reader :seed           # PRNG seed governing all uses of "rand"
@@ -28,32 +24,8 @@ module OscillatorNeuralNetwork
     DEFAULT_NUM_EVALS_PARAM = 500 
     DEFAULT_SEED = 0
 
-#### Class method(s) ####
-
-    # This method trains a network using an instance of an OscillatorGeneticAlgorithm.
-    #   network:       the initial network to train 
-    #   input:         GSL::Matrix of inputs to the network 
-    #   exp_output:    GSL::Matrix of expected/desired output for the given input 
-    #   pop_size:      How many solutions to keep in the "potential solution" population
-    #   gens:          How many generations to run the GA
-    #   mutation_rate: a parameter describing how frequently a given solution gets random mutations
-    # Returns an array containing the evolved network  along with a weighted error estimate of 
-    # how "close" the expected and actual outputs are after training is complete.
-    def self.train(network, input, exp_output, pop_size, gens, mutation_rate=DEFAULT_MUTATION_RATE)
-      change_input(input)                                            # Set new input states
-      ga = GeneticSearch.new(network, pop_size, gens, mutation_rate) # Create GA
-      best_net = ga.run                                              # Run GA
-      # TODO determine exactly what gets returned from GA, what is neccessary to run it for error
-      # TODO HERE, do the loop for evaluation... perhaps abstract somewhere to use other places too
-      # (eval only evaluates once, decide here how many times to do this, for how long, fourier etc)
-      err = weighted_error(exp_output)
-      return [best_net, err]
-    end
-
-#### Instance methods ####
-
     # Initializes an ONN of coupled harmonic oscillators. 
-    #   node_data:       a GSL::Matrix containing vectors of node data (see OscillatorNeuron class for detail) 
+    #   node_data:       a GSL::Matrix containing vectors of node data (see OscillatorNode class for detail) 
     #   connections:     a GSL::Matrix of connection strengths. ijth entry is connection from node i to node j
     #   num_outputs:     the number of outputs that will exist in the network
     #   seed:            a PRNG seed governing all PRNG uses in this run (for repeatability)
@@ -69,13 +41,13 @@ module OscillatorNeuralNetwork
       srand(seed)                                                                   # Seed PRNG for this run
     end
 
-    # Creates the list of OscillatorNeuron objects which contain the data 
-    #   node_data:   GSL::Matrix with rows containing node data vectors (see OscillatorNeuron for detail)
+    # Creates the list of OscillatorNode objects which contain the data 
+    #   node_data:   GSL::Matrix with rows containing node data vectors (see OscillatorNode for detail)
     # Returns the list of nodes.
     def create_node_list(node_data)
       nodes = []
       node_data.each_row do |node_datum|
-        nodes << OscillatorNeuron.new(node_datum, self) # Initialize node states
+        nodes << OscillatorNode.new(node_datum, self) # Initialize node states
       end
       nodes = set_conns_from_mat(nodes)   # Set connections
       return nodes
@@ -100,39 +72,6 @@ module OscillatorNeuralNetwork
       increment_time         # Increment the time
     end
 
-    # Error weighting function. Calculates a Euclidean-style weighted error measure of the output.
-    #   expected: the expected/desired result (GSL::Matrix of data)
-    def weighted_error(expected)
-      w_err = 0.0
-      result_amps = []
-      result_freqs = []
-      @nodes.size-@num_outputs..@nodes.size do |index|
-        result_amps_i, result_freqs_i = fourier_analyze(index)
-        result_ampss << result_amps_i
-        result_freqs << result_freqs_i
-      end
-      result_amps.each_index do |node_index|
-        amp_term = result_amps[node_index] - amp_from_vec(expected[node_index])
-        freq_term = result_freqs[node_index] - freq_from_vec(expected[node_index])
-        w_err += GSL::hypot(amp_term, freq_term)
-      end
-      w_err /= result_amps.length
-      return w_err
-    end
-
-#### GA-related functions ####
-
-    # GA fitness function. Takes a nodelist and returns a weighted error calculation of the result
-    # compared with the expected/desired result by evaluating the network.
-    #   chromosome: a list of OscillatorNeurons 
-    # TODO fix
-    def fitness(chromosome)
-      @nodes = chromosome
-      output = eval_over_time
-      err = weighted_error(output,@curr_expected)
-      return err
-    end
-
     # Mutation function. Randomly mutates with a given chance specified by GA.
     #  chromosome: a nodelist (list of Oscillator Neurons divided into layers)
     #  mutation_rate: parameter describing the rate of mutation (chance of random mutation)
@@ -149,6 +88,21 @@ module OscillatorNeuralNetwork
       return chromosome
     end
 
+#### Plotting functions ####
+
+    # Plots a node's x values over time
+    #   data: the GSL::Matrix describing the node's history
+    def plot_x_over_time(node_num)
+      data = @nodes[node_num].states_matrix
+      x_vals = data.col(2) 
+      t = GSL::Vector.linspace(0,@eval_steps*@t_step,@eval_steps)
+      x_vals.graph(t,"-T png -C -X 'Time' -Y 'X' -L 'Waveform: Node #{node_num}' > xvals#{node_num}.png")
+    end
+    
+    def plot_fourier(freq_vec,fft,node_index)
+      GSL::graph(freq,fft.abs, "-T png -C -X 'Frequency (Hz)' -Y 'Amplitude' -L 'Node #{node_index} Scaled FFT' > fft#{node_index}.png")
+    end
+
 #### Miscellaneous helper functions ####
 
     # Returns an array of states matrices from nodes beginning at beg_ind and ending at
@@ -159,15 +113,6 @@ module OscillatorNeuralNetwork
         states << @nodes[ind].states_matrix 
       end
       return states
-    end
- 
-    # Plots a node's x values over time
-    #   data: the GSL::Matrix describing the node's history
-    def plot_x_over_time(node_num)
-      data = @nodes[node_num].states_matrix
-      x_vals = data.col(2) 
-      t = GSL::Vector.linspace(0,@eval_steps*@t_step,@eval_steps)
-      x_vals.graph(t,"-T png -C -X 'Time' -Y 'X' -L 'Waveform: Node #{node_num}' > xvals#{node_num}.png")
     end
 
     # Calculates good guesses of a time step to use based on the minimum a (spring constant)
@@ -186,7 +131,7 @@ module OscillatorNeuralNetwork
     end
 
     # Stores connection information from the connections matrix into the nodes.
-    #   nodes:       list of OscillatorNeuron objects in order
+    #   nodes:       list of OscillatorNode objects in order
     # Returns the nodelist with connections set
     def set_conns_from_mat(nodes)
       pointer_index = 0
@@ -234,8 +179,6 @@ module OscillatorNeuralNetwork
       fft_norm = fft2/fft2.len
 
       f = GSL::Vector.linspace(0,fs/2,fft_norm.size) 
-      # Graph for inspection
-      # GSL::graph(f,fft_norm.abs, "-T png -C -X 'Frequency (Hz)' -Y 'Amplitude' -L 'Node #{node_index} Scaled FFT' > fft#{node_index}.png")
       dom_amp = fft_norm.abs.max
       dom_freq = f[fft_norm.abs.max_index]
 
@@ -275,14 +218,14 @@ module OscillatorNeuralNetwork
 
   end
 
-  # This class describes a single OscillatorNeuron. Each neuron knows everything about
+  # This class describes a single OscillatorNode. Each neuron knows everything about
   # its own natural state, current state, next state, and inbound/outbound connections.
   # Variable state_vector is a GSL::vector containing the following information:
   # <a, b, x, x_prime, x_dbl_prime, layer> where the equation describing the
   # oscillator is x_dbl_prime = -a*x - b*x_prime + input_sum
   # so that a = spring constant, b = damping coefficient
 
-  class OscillatorNeuron
+  class OscillatorNode
 
     attr_accessor :states_matrix
     attr_accessor :input_sum_terms
@@ -299,7 +242,7 @@ module OscillatorNeuralNetwork
       dxdt[1] = (sum - b*x[1] - a*x[0])
     }
 
-    # Initialize a new OscillatorNeuron by passing a "natural state" hash.
+    # Initialize a new OscillatorNode by passing a "natural state" hash.
     #   state_vec: a GSL::Vector describing the state as given above
     #   network_ref: a reference to the network containing this neuron
     def initialize(state_vec, network_ref)
@@ -356,6 +299,8 @@ module OscillatorNeuralNetwork
       return @states_matrix[step_num][4] 
     end
 
+#### State update rules ####
+
     # Updates the current state of an input node using exact solutions to the equation
     #   x_dbl_prime = -a*x 
     # The exact solutions are:
@@ -393,6 +338,7 @@ module OscillatorNeuralNetwork
     # Updates the current state based on the current states of inputs to this node.  
     def update_state
 
+      # TODO uncomment once update_input_state works
       # if(@layer == 0)
       #   update_input_state
       #   return
@@ -428,7 +374,7 @@ module OscillatorNeuralNetwork
       # Initial conditions vector (values from the last time step)
       x = GSL::Vector[get_x(last_time_step),get_x_prime(last_time_step)]
 
-      # GSL::ieee_env_setup()
+      GSL::ieee_env_setup()
 
       # Apply solver
       while t < t1
