@@ -1,12 +1,12 @@
 # This is an implementation of oscillator neural networks which can update its own state, 
 # plot various things about its state.
 
-module OscillatorNeuralNetwork
+module OscillatorNetwork
 
   # For Ruby/GSL scientific library (vectors, matrices, graphing)
   require 'gsl'
 
-  class ONN 
+  class Network 
   
     attr_accessor :nodes        # An array of OscillatorNode objects
     attr_reader :t_step         # time step
