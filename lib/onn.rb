@@ -2,10 +2,6 @@
 # plot various things about its state.
 
 module OscillatorNeuralNetwork
- 
-  # For genetic algorithm
-  require File.expand_path(File.dirname(__FILE__)) + "/onn_genetic_algorithm"
-  include ONNGeneticAlgorithm      
 
   # For Ruby/GSL scientific library (vectors, matrices, graphing)
   require 'gsl'
@@ -15,30 +11,24 @@ module OscillatorNeuralNetwork
     attr_accessor :nodes        # An array of OscillatorNode objects
     attr_reader :t_step         # time step
     attr_reader :eval_steps     # number of steps to run net
-    attr_reader :seed           # PRNG seed governing all uses of "rand"
     attr_reader :connections    # Connections Matrix
     attr_reader :curr_time      # Current simulated time
     attr_reader :curr_step      # Current time step
 
-    DEFAULT_MUTATION_RATE = 0.4
     DEFAULT_NUM_EVALS_PARAM = 500 
-    DEFAULT_SEED = 0
 
     # Initializes an ONN of coupled harmonic oscillators. 
     #   node_data:       a GSL::Matrix containing vectors of node data (see OscillatorNode class for detail) 
     #   connections:     a GSL::Matrix of connection strengths. ijth entry is connection from node i to node j
     #   num_outputs:     the number of outputs that will exist in the network
-    #   seed:            a PRNG seed governing all PRNG uses in this run (for repeatability)
     #   num_evals_param: parameter used to decide how many evaluations to complete before evaluating outputs
-    def initialize(node_data, connections, num_outputs, seed=DEFAULT_SEED, num_evals_param=DEFAULT_NUM_EVALS_PARAM)
-      @seed = seed
+    def initialize(node_data, connections, num_outputs, num_evals_param=DEFAULT_NUM_EVALS_PARAM)
       @num_outputs = num_outputs
       @connections = connections.clone                                              # Store connections GSL::Matrix
       @t_step, @eval_steps = calc_time_vars(node_data,num_evals_param) # Calculate appropriate time step, number of time steps
       @nodes = create_node_list(node_data)                                          # Initialize network of nodes by layer
       @curr_time = 0.0                                                              # Set current time to 0
       @curr_step = 0
-      srand(seed)                                                                   # Seed PRNG for this run
     end
 
     # Creates the list of OscillatorNode objects which contain the data 
@@ -98,7 +88,8 @@ module OscillatorNeuralNetwork
       t = GSL::Vector.linspace(0,@eval_steps*@t_step,@eval_steps)
       x_vals.graph(t,"-T png -C -X 'Time' -Y 'X' -L 'Waveform: Node #{node_num}' > xvals#{node_num}.png")
     end
-    
+   
+    # Plots a node's fourier transform after a full run of the network.
     def plot_fourier(freq_vec,fft,node_index)
       GSL::graph(freq,fft.abs, "-T png -C -X 'Frequency (Hz)' -Y 'Amplitude' -L 'Node #{node_index} Scaled FFT' > fft#{node_index}.png")
     end
