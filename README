@@ -1,14 +1,15 @@
-This code is based on ai4r: http://ai4r.rubyforge.org/index.html
-
 Implements an oscillator neural network which uses a genetic algorithm as its 
 learning/training rule. Flexible enough to accomodate any network structure 
 and to train by weights or by varying inherent properties of the oscillators.
 
-General Usage:
-
-1. Create a GAONN object, initializing as desired.
-
-2. Call "train" on that object.
-
-3. Recieve back the "fittest" solution found.
-
+The primary purpose of this code is to simulate and observe this type of 
+neural network (one made of oscillating nodes with various connections).
+The possible applications remain to be seen, and the author's primary
+goal is to investigate network architectures and initial conditions
+which cannot be described analytically. Most of the current work
+on these networks uses simple arrangements (chains, lattices, global networks)
+and puts tight constraints on the initial conditions in order to 
+obtain analytical descriptions. The author believes that there needs
+to be a way to study networks which do not fall into this category
+and thinks that a numerical simulation such as this implementation
+is a good start.
