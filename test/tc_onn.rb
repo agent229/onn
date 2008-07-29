@@ -1,44 +1,43 @@
-# Testing file for the genetic algorithm ONN
+# Testing file for the genetic algorithm OscillatorNetwork
 require File.expand_path(File.dirname(__FILE__)) + "/../lib/onn" 
-include OscillatorNeuralNetwork
+include OscillatorNetwork
 require 'test/unit'
 require 'gsl'
 
-class TestONN < Test::Unit::TestCase
+class TestNetwork < Test::Unit::TestCase
 
   def setup
 #     node_data = GSL::Matrix[[4*GSL::M_PI*GSL::M_PI,0,1.0,0,0,0]]
 #     conns = GSL::Matrix[[0]]
-#     @net= GAONN.new(node_data,conns,1)
+#     @net= Network.new(node_data,conns,1)
 
 
 #    node_data = GSL::Matrix[[4*GSL::M_PI*GSL::M_PI,0,1.0,0.2,0,0],[20.0,0,1.0,0.2,0,0],[40.0,0.05,0,0,0,1],[30.0,0.05,0,0,0,1]]
 #    conns = GSL::Matrix[[0,0,0.1,0.1],[0,0,0.1,0.1],[0,0,0,0],[0,0,0,0]]
-#    @net = GAONN.new(node_data,conns,2,0,15000)
+#    @net = Network.new(node_data,conns,2)
 
   #  node_data = GSL::Matrix[[0.9,0,1.0,0.2,0,0],[0.3,0.05,0,0,0,1],[0.7,0.05,0,0,0,1]]
   #  conns = GSL::Matrix[[0,-0.1,-0.1],[0,0,0],[0,0,0]]
-  #  @net = GAONN.new(node_data,conns,2)
+  #  @net = Network.new(node_data,conns,2)
 
   # node_data = GSL::Matrix[[0.4,0,1,0.1,0,0],[0.2,0.2,0,0,0,1],[0.3,0.2,0,0,0,1],[0.6,0.1,0,0,0,2],[1.2,0.1,0,0,0,2]]
   # conns = GSL::Matrix[[0,0.8,0.2,0,0],[0,0,0,0.6,-0.4],[0,0,0,-0.4,0.6],[0,0,0,0,0],[0,0,0,0,0]]
-  # @net = GAONN.new(node_data,conns,2) 
+  # @net = Network.new(node_data,conns,2) 
 
-    node_data = GSL::Matrix[[0.7,0,1,0,0,0],[0.3,0.1,0,0,0,1],[0.8,0.1,0,0,0,1],[0.2,0.1,0,0,0,2],[0.7,0.1,0,0,0,2]]
-    conns = GSL::Matrix[[0,0.4,0.4,0,0],[0,0,0.2,0.4,-0.6],[0,0.2,0,-0.6,0.4],[0,0,0,0,0],[0,0,0,0,0]]
-    @net = GAONN.new(node_data,conns,2,0,2000) 
+    node_data = GSL::Matrix[[0.70000001,0,1.0000000000001,0,0,0],[0.30000001,0.10000000001,0,0,0,1],[0.80000001,0.10000000001,0,0,0,1],[0.20000001,0.100000001,0,0,0,2],[0.70000001,0.10000000001,0,0,0,2]]
+    conns = GSL::Matrix[[0,0.4000000001,0.4000000001,0,0],[0,0,0.2000000001,0.400000001,-0.600000001],[0,0.200000001,0,-0.60000001,0.40000001],[0,0,0,0,0],[0,0,0,0,0]]
+    @net = Network.new(node_data,conns,2) 
     
   #  node_data = GSL::Matrix[[0.7,0,1,0.1,0,0],[0.7,0.1,0,0,0,1],[0.7,0.2,0,0,0,1],[0.7,0.1,0,0,0,2]]
   #  conns = GSL::Matrix[[0,0.4,0.3,0],[0,0,0,0.4],[0,0,0,0.4],[0,0,0,0]]
-  #  @net = GAONN.new(node_data,conns,1)
+  #  @net = Network.new(node_data,conns,1)
   end
 
   def test_init
-    assert_equal(@net.seed,0)
     assert_kind_of(Array,@net.nodes)
 
     @net.nodes.each do |node|
-      assert_kind_of(OscillatorNeuron,node)
+      assert_kind_of(OscillatorNode,node)
     end
 
     assert_kind_of(GSL::Matrix,@net.connections)
