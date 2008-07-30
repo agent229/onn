@@ -1,17 +1,17 @@
-# This is an implementation of oscillator networks.
+# This is an implementation of oscillator neural networks.
 # These networks are made of nodes which are harmonic oscillators.
 # The nodes are capable of updating their own states based on
 # inherent frequency, damping, and inputs from other nodes. 
-# The Network class describes an entire network object, and
+# The ONN class describes an entire network object, and
 # the OscillatorNode class describes a single node.
-# By importing the OscillatorNetwork model, you can create and
-# run an Oscillatory network and plot data and observe behavior.
+# By importing the OscillatorNeuralNetwork module, you can create and
+# run an ONN and plot data and observe behavior.
 
-module OscillatorNetwork
+module OscillatorNeuralNetwork
 
   require 'gsl' # For Ruby/GSL scientific library (vectors, matrices, graphing)
 
-  class Network 
+  class ONN 
   
     attr_accessor :nodes          # An array of OscillatorNode objects
     attr_reader :t_step           # time step
@@ -35,23 +35,34 @@ module OscillatorNetwork
 #### Initialization ####
 
     # Initializes an network of coupled harmonic oscillators. 
-    #   node_data:       a GSL::Matrix containing row vectors of node data (see OscillatorNode class for detail) 
+    #   input_list:      a list of input data representing different sets of inputs to train the network on. 
+    #                    Should be a GSL::Matrix with rows representing the input nodes, cols their different values
+    #   node_data:       a GSL::Matrix containing row vectors of initial node data (see OscillatorNode class for detail) 
     #   connections:     a GSL::Matrix of connection strengths. ijth entry is connection from node i to node j
+    #   num_outputs:     the number of outputs in the network
+    #   num_inputs:      the number of inputs in the network
     #   num_evals_param: (optional) parameter used to decide how many evaluations to complete before evaluating outputs
-    def initialize(node_data, connections, num_evals_param=DEFAULT_NUM_EVALS_PARAM)
-      @num_outputs = get_num_outputs(node_data)                        # Calculate number of outputs
-      @connections = connections.clone                                 # Store connections GSL::Matrix
-      @t_step, @eval_steps = calc_time_vars(node_data,num_evals_param) # Calculate appropriate time step, number of time steps
-      @nodes = create_node_list(node_data)                             # Initialize network of nodes by layer
-      @curr_time = 0.0                                                 # Set current time to 0
-      @curr_step = 0
+    def initialize(input_list, node_data, connections, num_outputs, num_inputs, num_evals_param=DEFAULT_NUM_EVALS_PARAM)
+      @input_list = input_list.clone
+      @node_data = node_data.clone
+      @num_outputs = num_outputs 
+      @num_inputs = num_inputs
+      @num_evals_param = num_evals_param
+      @connections = connections.clone                
+      @nodes = create_node_list(@num_inputs, node_data) 
+      set_input(0)                         
     end
 
-    # Creates the list of OscillatorNode objects which contain the data. 
-    #   node_data:   GSL::Matrix with rows containing node data vectors (see OscillatorNode for detail)
+    # Creates a list of OscillatorNode objects which contain the data. 
+    #   num_inputs: the number of input nodes to reserve space for
+    #   node_data:  GSL::Matrix with rows containing node data vectors (see OscillatorNode for detail)
     # Returns an Array of initialized OscillatorNodes. 
-    def create_node_list(node_data)
+    def create_node_list(num_inputs, node_data)
       nodes = []
+      empty_vector = GSL::Vector.calloc(node_data.size2)
+      num_inputs.times do
+        nodes << OscillatorNode.new(empty_vector,self)
+      end
       node_data.each_row do |node_datum|
         nodes << OscillatorNode.new(node_datum, self) # Initialize node states
       end
@@ -59,15 +70,29 @@ module OscillatorNetwork
       return nodes
     end
 
+    # Sets a new input set into the network and sets it up to run
+    def set_input(index)
+      new_input_vals = []
+      @input_list.each do |input|
+        new_input_vals << input.row(index) 
+      end
+      new_input_vals.each_index do |input|
+        @nodes[input].states_matrix.row(0) = input
+      end
+      @t_step, @eval_steps = calc_time_vars 
+      @curr_time = 0.0                                              
+      @curr_step = 0
+    end
+
 #### Evaluation ####
 
-    # Evaluates the network over time by calling "eval" repeatedly. 
+    # Evaluates the network over time over one input (the one currently encoded in the network). 
     # The number of times it is called is determined by parameters and
     # initial conditions of the system (stored in @eval_steps)
     def eval_over_time
       (@eval_steps-1).times do eval end 
     end
-
+ 
     # Evaluates the network's output state by propagating the current input states through the network.
     # Evaluates over one time step, then increments the time step after updating the states.
     def eval
@@ -81,33 +106,16 @@ module OscillatorNetwork
     end
 
 #### Custom accessor methods ####
-    
-    # Returns the number of output nodes in a given network configuration
-    def get_num_outputs(data)
-      layer_nums = data.col(5)
-      output_layer = layer_nums.max
-      num_outputs = 0
-      layer_nums.each do |elem|
-        if(elem.to_i==output_layer) num_outputs += 1
-      end
-      return num_outputs
-    end
-
-    # Returns an array of states matrices from nodes beginning at beg_ind and ending at
-    # end_ind. If the arguments are left off, returns all state matrices. Preserves order.
-    def get_states(beg_ind=0, end_ind=@nodes.length)
-      states = []
-      (end_ind-beg_ind).times do |ind|
-        states << @nodes[ind].states_matrix 
-      end
-      return states
-    end
 
     # Calculates a suitable time step to use based on the Nyquist-Shannon Sampling Theorem. 
     # Also calculates the number of time steps over which to evaluate the network.
     # Returns both values in this order: t_step, eval_steps
-    def calc_time_vars(node_data,eval_steps_param)
-      a_vals = node_data.col(0)
+    def calc_time_vars
+      a_vals_arr = []
+      @nodes.each do |node|
+        a_vals_arr << node.states_matrix[0,0]
+      end
+      a_vals = a_vals_arr.to_gv
       freq_vals = a_vals.sqrt/2*GSL::M_PI
       ones = GSL::Vector.alloc(freq_vals.len).set_all(1)
       quotients = ones/(2*freq_vals)
@@ -115,7 +123,7 @@ module OscillatorNetwork
       t_step = 0.4*min_quotient
       periods = quotients*2 
       max_period = periods.max
-      return t_step, ((max_period*eval_steps_param).round-1)
+      return t_step, ((max_period*@eval_steps_param).round-1)
     end
 
     # Stores connection information from the connections matrix into the nodes.
