@@ -22,16 +22,6 @@ module OscillatorNeuralNetwork
 
     DEFAULT_NUM_EVALS_PARAM = 500 # Parameter helping decide how many evaluations to get the network to a stable state
 
-#### Class methods ####
-
-    # Mutation function. Randomly perturbs the network's configuration states with a given chance.
-    #  chromosome:    a Network to mutate
-    #  mutation_rate: parameter describing the rate of mutation (chance of random mutation)
-    # Returns the mutated/perturbed Network. 
-    def self.mutate(network, mutation_rate)
-      # TODO write mutation--take hash of options?
-    end
-
 #### Initialization ####
 
     # Initializes an network of coupled harmonic oscillators. 
@@ -77,7 +67,7 @@ module OscillatorNeuralNetwork
         new_input_vals << input.row(index) 
       end
       new_input_vals.each_index do |input|
-        @nodes[input].states_matrix.row(0) = input
+        @nodes[input].states_matrix.set_row(0,input)
       end
       @t_step, @eval_steps = calc_time_vars 
       @curr_time = 0.0                                              
