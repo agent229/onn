@@ -7,34 +7,45 @@ module GAONN
   require File.expand_path(File.dirname(__FILE__)) + "/onn"
   include OscillatorNeuralNetwork
 
+  class Integer
+    def fact
+      (2..self).inject(1) { |f, n| f * n }
+    end
+  end
+
   class GAONN
 
     # GA parameter default values
-    DEFAULT_POPULATION_SIZE = 100
-    DEFAULT_NUM_GENS        = 100
-    DEFAULT_MUTATION_RATE   = 0.4
+    DEFAULT_POPULATION_SIZE   = 100
+    DEFAULT_NUM_GENS          = 100
+    DEFAULT_MUTATION_RATE     = 0.4
+    DEFAULT_MUTATION_RADIUS   = 1.0 
 
-    :attr_accessor init_node_data
+    attr_accessor :init_node_data
 
     # Creates a new GAONN instance
-    #   node_data:     a matrix containing the hidden and output layer node data
-    #   connections:   a connections matrix for entire network
-    #   inputs:        a list of matrices of input state vectors, one matrix per input node
-    #   seed:          a PRNG seed governing all calls to rand for this simulation
-    #   mutation_rate: the rate at which mutations occur in the GA
-    def initialize(node_data,connections,inputs,seed,mutation_rate)
+    #   node_data:       a matrix containing the hidden and output layer node data
+    #   connections:     a connections matrix for entire network
+    #   inputs:          a list of matrices of input state vectors, one matrix per input node
+    #   seed:            a PRNG seed governing all calls to rand for this simulation
+    #   mutation_rate:   the rate at which mutations occur in the GA
+    #   mutation_radius: a description of how much to mutate things
+    def initialize(node_data,connections,inputs,seed,mutation_rate=DEFAULT_MUTATION_RATE,mutation_radius=DEFAULT_MUTATION_RADIUS,pop_size=DEFAULT_POPULATION_SIZE,num_gens=DEFAULT_NUM_GENS)
       @init_node_data = node_data.clone
       @initial_conns = connections.clone
       @input_list = inputs.clone
       @num_inputs = inputs.size2
       @num_outputs = outputs.size2
       @mutation_rate = mutation_rate
+      @mutation_radius = mutation_radius
+      @pop_size = pop_size
+      @num_gens = num_gens
       srand(seed)
     end
 
     # Returns best node_data and its fitness
     def train
-      ga = GeneticSearch.new(self, DEFAULT_POPULATION_SIZE, DEFAULT_NUM_GENS, DEFAULT_MUTATION_RATE)
+      ga = GeneticSearch.new(self, @pop_size, @num_gens, @mutation_rate, @mutation_radius)
       return ga.run
     end
 
@@ -63,8 +74,24 @@ module GAONN
 
     # Evaluates the error of the @outputs currently stored
     def eval_error
-      # TODO implement
-      return rand
+      outputs = @outputs.clone
+      sum = 0
+      max_row = outputs.size1
+      0..max_row do |row_index|
+        row_index..max_row do |index2|
+          v1 = outputs[row_index]
+          v2 = outputs[index2]
+          dot = v1*v2.col
+          sq1 = v1.collect! { |e| e*e } 
+          mag1 = sq1.sum.sqrt
+          sq2 = v2.collect! { |e| e*e } 
+          mag2 = sq2.sum.sqrt
+          mag_prod = mag1*mag2
+          sum += (dot/mag_prod)
+        end
+      end
+      norm_sum = sum/outputs.size1.fact
+      return norm_sum
     end
 
   end
@@ -82,13 +109,14 @@ module GAONN
     #   population_size: the size of the population of potential solutions 
     #   generations:     the number of generations to run the GA 
     #   mutation_rate:   the mutation rate
-    def initialize(gaonn, population_size, generations, mutation_rate)
+    def initialize(gaonn, population_size, generations, mutation_rate, mutation_radius)
       @population_size = population_size 
       @max_generation = generations
       @curr_generation = 0
       @population = []     
       @gaonn = gaonn
       @mutation_rate = mutation_rate
+      @mutation_radius = mutation_radius
     end
     
     # Runs a genetic algorithm, returning the best chromosome (node list) on completion
@@ -114,10 +142,10 @@ module GAONN
   
     # Generates population by adding random uniform noise to the given node_data.
     #   variation_radius: describes the range of noise that will be added
-    def generate_initial_population(variation_radius)
+    def generate_initial_population
       orig_data = @gaonn.init_node_data
       @population_size.times do
-        @population << perturb_matrix(orig_data,variation_radius)
+        @population << perturb_matrix(orig_data,@mutation_radius)
       end
     end
 
@@ -128,10 +156,10 @@ module GAONN
       return mat2
     end
 
-    def mutate(mat, radius)
+    def mutate(mat)
       mat.collect! { |entry|
         if rand < @mutation_rate
-          entry + (rand(2*radius)-radius) 
+          entry + (rand(2*@mutation_radius)-@mutation_radius) 
         end
       }
     end
@@ -178,7 +206,7 @@ module GAONN
     #     rand < ((1 - chromosome.fitness) * 0.4)
     def reproduction(selected_to_breed)
       selected_to_breed.each do |individual|
-        mutate(individual,mutation_radius)
+        mutate(individual)
       end
       return selected_to_breed
     end
