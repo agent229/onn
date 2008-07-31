@@ -7,13 +7,14 @@ module GAONN
   require File.expand_path(File.dirname(__FILE__)) + "/onn"
   include OscillatorNeuralNetwork
 
+  # Factorial convenience method
   class Integer
     def fact
       (2..self).inject(1) { |f, n| f * n }
     end
   end
 
-  class GAONN
+  class GA
 
     # GA parameter default values
     DEFAULT_POPULATION_SIZE   = 100
@@ -21,102 +22,27 @@ module GAONN
     DEFAULT_MUTATION_RATE     = 0.4
     DEFAULT_MUTATION_RADIUS   = 1.0 
 
-    attr_accessor :init_node_data
-
-    # Creates a new GAONN instance
+    # Creates a new GAONN
     #   node_data:       a matrix containing the hidden and output layer node data
     #   connections:     a connections matrix for entire network
     #   inputs:          a list of matrices of input state vectors, one matrix per input node
     #   seed:            a PRNG seed governing all calls to rand for this simulation
-    #   mutation_rate:   the rate at which mutations occur in the GA
-    #   mutation_radius: a description of how much to mutate things
-    def initialize(node_data,connections,inputs,seed,mutation_rate=DEFAULT_MUTATION_RATE,mutation_radius=DEFAULT_MUTATION_RADIUS,pop_size=DEFAULT_POPULATION_SIZE,num_gens=DEFAULT_NUM_GENS)
-      @init_node_data = node_data.clone
-      @initial_conns = connections.clone
-      @input_list = inputs.clone
-      @num_inputs = inputs.size2
-      @num_outputs = outputs.size2
-      @mutation_rate = mutation_rate
-      @mutation_radius = mutation_radius
-      @pop_size = pop_size
-      @num_gens = num_gens
-      srand(seed)
-    end
-
-    # Returns best node_data and its fitness
-    def train
-      ga = GeneticSearch.new(self, @pop_size, @num_gens, @mutation_rate, @mutation_radius)
-      return ga.run
-    end
-
-    # Error/fitness function (for now based on "orthogonal amplitude" idea).
-    #   chromosome: a chromosome from the GA (for now, a node_data matrix)
-    def fitness(chromosome)
-
-      @outputs = GSL::Matrix.alloc(@input_list.size,@num_outputs)
-      @net = ONN.new(@input_list,chromosome,@conns,@num_outputs,@num_inputs)
-
-      @net.eval_over_time
-      amps, freqs = @net.fourier_analyze
-      @outputs.set_row(0,amps.to_gv)
-
-      1..@input_list.size do |index|
-        @net.set_input(index)
-        @net.eval_over_time
-        amps, freqs = @net.fourier_analyze
-        @outputs.set_row(index,amps.to_gv)
-      end
-
-      norm_error = eval_error
-      fitness = 1 - norm_error
-      return fitness
-    end
-
-    # Evaluates the error of the @outputs currently stored
-    def eval_error
-      outputs = @outputs.clone
-      sum = 0
-      max_row = outputs.size1
-      0..max_row do |row_index|
-        row_index..max_row do |index2|
-          v1 = outputs[row_index]
-          v2 = outputs[index2]
-          dot = v1*v2.col
-          sq1 = v1.collect! { |e| e*e } 
-          mag1 = sq1.sum.sqrt
-          sq2 = v2.collect! { |e| e*e } 
-          mag2 = sq2.sum.sqrt
-          mag_prod = mag1*mag2
-          sum += (dot/mag_prod)
-        end
-      end
-      norm_sum = sum/outputs.size1.fact
-      return norm_sum
-    end
-
-  end
-
-  class GeneticSearch
-
-    attr_reader :population_size
-    attr_reader :max_generation
-    attr_reader :curr_generation
-    attr_reader :population
-    attr_reader :mutation_rate
-
-    # Creates new GeneticSearch instance 
-    #   gaonn:           the gaonn 
     #   population_size: the size of the population of potential solutions 
     #   generations:     the number of generations to run the GA 
-    #   mutation_rate:   the mutation rate
-    def initialize(gaonn, population_size, generations, mutation_rate, mutation_radius)
+    #   mutation_rate:   the rate at which mutations occur in the GA
+    #   mutation_radius: a description of how much to mutate things
+    def initialize(node_data,connections,inputs,seed,population_size=DEFAULT_POPULATION_SIZE,generations=DEFAULT_NUM_GENS,mutation_rate=DEFAULT_MUTATION_RATE,mutation_radius=DEFAULT_MUTATION_RADIUS)
       @population_size = population_size 
       @max_generation = generations
       @curr_generation = 0
       @population = []     
-      @gaonn = gaonn
       @mutation_rate = mutation_rate
       @mutation_radius = mutation_radius
+      @init_node_data = node_data.clone
+      @init_conns = connections.clone
+      @input_list = inputs.clone
+      @num_inputs = inputs.size2
+      srand(seed)
     end
     
     # Runs a genetic algorithm, returning the best chromosome (node list) on completion
@@ -132,36 +58,27 @@ module GAONN
     def run
       generate_initial_population 
       @max_generation.times do
-        selected_to_breed = selection                # evaluate current population 
-        offsprings = reproduction(selected_to_breed) # generate the population for this new generation
+        offsprings = selection 
+        reproduction
         replace_worst_ranked(offsprings)
       end
-      @population.sort! { |a, b| @gaonn.fitness(b) <=> @gaonn.fitness(a)}
-      return @population[0], @ga_onn.fitness(@population[0])
+      return best_chromosome, best_chromosome.normalized_fitness
     end
   
     # Generates population by adding random uniform noise to the given node_data.
-    #   variation_radius: describes the range of noise that will be added
     def generate_initial_population
-      orig_data = @gaonn.init_node_data
       @population_size.times do
-        @population << perturb_matrix(orig_data,@mutation_radius)
+        @population << Chromosome.new(@init_node_data,@mutation_radius)
       end
     end
 
-    # Adds uniform noise to a matrix
-    def perturb_matrix(mat, radius)
-      mat2 = mat.clone
-      mat2.collect! { |entry| entry + (rand(2*radius)-radius) }
-      return mat2
-    end
-
-    def mutate(mat)
-      mat.collect! { |entry|
-        if rand < @mutation_rate
-          entry + (rand(2*@mutation_radius)-@mutation_radius) 
-        end
-      }
+    # Select the best chromosome in the population
+    def best_chromosome
+      the_best = @population[0]
+      @population.each do |chromosome|
+        the_best = chromosome if chromosome.fitness > the_best.fitness
+      end
+      return the_best
     end
     
     # Selection is the stage of a genetic algorithm in which individual 
@@ -179,36 +96,30 @@ module GAONN
     #    (its is normalized value plus the normalized values of the chromosomes prior it) greater than r.
     # 5. we repeat steps 4 and 5, 2/3 times the population size.    
     def selection
-      @population.sort! { |a, b| @gaonn.fitness(b) <=> @gaonn.fitness(a)}
-      best_fitness = @gaonn.fitness(@population[0])
-      worst_fitness = @gaonn.fitness(@population.last)
+      @population.sort! { |a, b| b.fitness <=> a.fitness }
+      best_fitness = @population[0].fitness
+      worst_fitness = @population.last.fitness
       acum_fitness = 0
-        if best_fitness - worst_fitness > 0
-          @population.each do |chromosome| 
-          acum_fitness += @gaonn.fitness(chromosome)
+      if best_fitness - worst_fitness > 0
+        @population.each do |chromosome| 
+          chromosome.normalized_fitness = (chromosome.fitness-worst_fitness)/(best_fitness-worst_fitness)
+          acum_fitness += chromosome.normalized_fitness
         end
+      else
+        @population.each { |chromosome| chromosome.normalized_fitess = 1 }
       end
-
       selected_to_breed = []
       ((2*@population_size)/3).times do 
         selected_to_breed << select_random_individual(acum_fitness)
       end
-      selected_to_breed
-    end
-    
-    # we combine each pair of selected chromosome using the method 
-    # chromosome.reproduce
-    #
-    # the reproduction will also call the chromosome.mutate method with 
-    # each member of the population. you should implement chromosome.mutate
-    # to only change (mutate) randomly. e.g. you could effectivly change the
-    # chromosome only if 
-    #     rand < ((1 - chromosome.fitness) * 0.4)
-    def reproduction(selected_to_breed)
-      selected_to_breed.each do |individual|
-        mutate(individual)
-      end
       return selected_to_breed
+    end
+   
+    # Mutates all with same chance, reproduces (by copying) those that are good.
+    def reproduction
+      @population.each do |chromosome|
+        Chromosome.mutate(chromosome)
+      end
     end
     
     # replace worst ranked part of population with offspring
@@ -221,10 +132,87 @@ module GAONN
       select_random_target = acum_fitness * rand
       local_acum = 0
       @population.each do |chromosome|
-        local_acum += @gaonn.fitness(chromosome)
+        local_acum += chromosome.normalized_fitness
         return chromosome if local_acum >= select_random_target
       end
     end
+  end
+
+  # Describies a chromosome of the GA, which is currently node_data only and judges its
+  # fitness based on the output amplitudes and orthoganality
+  class Chromosome
+
+    attr_accessor :node_data
+    attr_accessor :normalized_fitness
+
+    # Initialize a chromosome
+    def initialize(node_data, mutation_radius, mutation_rate)
+      @mutation_radius = mutation_radius
+      @mutation_rate = mutation_rate
+      @node_data = perturb_matrix(node_data) 
+    end
+
+    # Adds uniform noise to a matrix in a given radius
+    def perturb_matrix(mat)
+      mat2 = mat.clone
+      mat2.collect! { |entry| entry + (rand(2*@mutation_radius)-@mutation_radius) }
+      return mat2
+    end
+
+    def self.mutate(chrom)
+      mat = chrom.node_data
+      changed_flag = false
+      mat.collect! { |entry|
+        if chrom.normalized_fitness && rand < ((1-chrom.normalized_fitness) * @mutation_rate)
+          entry + (rand(2*@mutation_radius)-@mutation_radius) 
+          changed_flag = true
+        end
+      }
+      @fitness = nil if changed_flag
+    end
+
+    # Error/fitness function (for now based on "orthogonal amplitude" idea).
+    #   chromosome: a chromosome from the GA (for now, a node_data matrix)
+    def fitness(chromosome)
+
+      return @fitness if @fitness
+
+      outputs = GSL::Matrix.alloc(@input_list.size,@num_outputs)
+      @net = ONN.new(@input_list,chromosome,@conns,@num_outputs,@num_inputs)
+
+      @net.eval_over_time
+      amps, freqs = @net.fourier_analyze
+      outputs.set_row(0,amps.to_gv)
+
+      1..@input_list.size do |index|
+        @net.set_input(index)
+        @net.eval_over_time
+        amps, freqs = @net.fourier_analyze
+        outputs.set_row(index,amps.to_gv)
+      end
+
+      error = eval_error(outputs)
+      @fitness = 1/error
+      return @fitness
+    end
+
+    # Evaluates the error of the @outputs currently stored
+    def eval_error(outputs_mat)
+      outputs = outputs_mat.clone
+      sum = 0
+      max_row = outputs.size1
+      0..max_row do |row_index|
+        row_index..max_row do |index2|
+          v1 = outputs[row_index]
+          v2 = outputs[index2]
+          dot_prod = v1*v2.col
+          sum += dot_prod
+        end
+      end
+      norm_sum = sum/outputs.size1.fact
+      return norm_sum
+    end
+
   end
 
 end
