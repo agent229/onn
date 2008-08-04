@@ -21,27 +21,38 @@ module GAONN
     DEFAULT_NUM_GENS          = 100
     DEFAULT_MUTATION_RATE     = 0.4
     DEFAULT_MUTATION_RADIUS   = 1.0 
+    DEFAULT_SEED              = 0
+
+    attr_accessor :node_data
+    attr_accessor :mutation_rate
+    attr_accessor :mutation_radius
+    attr_accessor :conns
+    attr_accessor :input_list
+    attr_accessor :num_inputs
+    attr_accessor :num_outputs
 
     # Creates a new GAONN
     #   node_data:       a matrix containing the hidden and output layer node data
     #   connections:     a connections matrix for entire network
     #   inputs:          a list of matrices of input state vectors, one matrix per input node
+    #   num_outputs:     number of outputs
     #   seed:            a PRNG seed governing all calls to rand for this simulation
     #   population_size: the size of the population of potential solutions 
     #   generations:     the number of generations to run the GA 
     #   mutation_rate:   the rate at which mutations occur in the GA
     #   mutation_radius: a description of how much to mutate things
-    def initialize(node_data,connections,inputs,seed,population_size=DEFAULT_POPULATION_SIZE,generations=DEFAULT_NUM_GENS,mutation_rate=DEFAULT_MUTATION_RATE,mutation_radius=DEFAULT_MUTATION_RADIUS)
+    def initialize(node_data,connections,inputs,num_outputs,seed=DEFAULT_SEED,population_size=DEFAULT_POPULATION_SIZE,generations=DEFAULT_NUM_GENS,mutation_rate=DEFAULT_MUTATION_RATE,mutation_radius=DEFAULT_MUTATION_RADIUS)
       @population_size = population_size 
       @max_generation = generations
       @curr_generation = 0
       @population = []     
       @mutation_rate = mutation_rate
       @mutation_radius = mutation_radius
-      @init_node_data = node_data.clone
-      @init_conns = connections.clone
-      @input_list = inputs.clone
-      @num_inputs = inputs.size2
+      @node_data = node_data.clone
+      @conns = connections.clone
+      @input_list = inputs
+      @num_inputs = inputs[0].size1
+      @num_outputs = num_outputs
       srand(seed)
     end
     
@@ -68,7 +79,7 @@ module GAONN
     # Generates population by adding random uniform noise to the given node_data.
     def generate_initial_population
       @population_size.times do
-        @population << Chromosome.new(@init_node_data,@mutation_radius)
+        @population << Chromosome.new(self)
       end
     end
 
@@ -146,25 +157,32 @@ module GAONN
     attr_accessor :normalized_fitness
 
     # Initialize a chromosome
-    def initialize(node_data, mutation_radius, mutation_rate)
-      @mutation_radius = mutation_radius
-      @mutation_rate = mutation_rate
-      @node_data = perturb_matrix(node_data) 
+    def initialize(ga)
+      @ga = ga
+      @node_data = perturb_matrix(ga.node_data) 
     end
 
     # Adds uniform noise to a matrix in a given radius
     def perturb_matrix(mat)
       mat2 = mat.clone
-      mat2.collect! { |entry| entry + (rand(2*@mutation_radius)-@mutation_radius) }
+      mat2.collect! { |entry| entry + (rand(2*@ga.mutation_radius)-@ga.mutation_radius) }
+      row_index = 0
+      mat2.col(0).each do |a_val|
+        if a_val < 0
+          mat2[row_index,0] = a_val.abs
+        end
+        row_index += 1
+      end
       return mat2
     end
 
     def self.mutate(chrom)
+      mutation_radius = @ga.mutation_radius * (1-chrom.normalized_fitness)
       mat = chrom.node_data
       changed_flag = false
       mat.collect! { |entry|
-        if chrom.normalized_fitness && rand < ((1-chrom.normalized_fitness) * @mutation_rate)
-          entry + (rand(2*@mutation_radius)-@mutation_radius) 
+        if chrom.normalized_fitness && rand < ((1-chrom.normalized_fitness) * @ga.mutation_rate)
+          entry + (rand(2*mutation_radius)-mutation_radius) 
           changed_flag = true
         end
       }
@@ -173,18 +191,18 @@ module GAONN
 
     # Error/fitness function (for now based on "orthogonal amplitude" idea).
     #   chromosome: a chromosome from the GA (for now, a node_data matrix)
-    def fitness(chromosome)
+    def fitness
 
       return @fitness if @fitness
 
-      outputs = GSL::Matrix.alloc(@input_list.size,@num_outputs)
-      @net = ONN.new(@input_list,chromosome,@conns,@num_outputs,@num_inputs)
+      outputs = GSL::Matrix.alloc(@ga.num_inputs,@ga.num_outputs)
+      @net = ONN.new(@ga.input_list,@node_data,@ga.conns,@ga.num_outputs,@ga.num_inputs)
 
       @net.eval_over_time
       amps, freqs = @net.fourier_analyze
       outputs.set_row(0,amps.to_gv)
 
-      1..@input_list.size do |index|
+      0..@ga.input_list.size do |index|
         @net.set_input(index)
         @net.eval_over_time
         amps, freqs = @net.fourier_analyze
@@ -206,7 +224,10 @@ module GAONN
           v1 = outputs[row_index]
           v2 = outputs[index2]
           dot_prod = v1*v2.col
-          sum += dot_prod
+          v1mag = v1.collect{|v| v*v}.sqrt
+          v2mag = v2.collect{|v| v*v}.sqrt
+          cos_angle = dot_prod/(v1mag*v2mag)
+          sum += cos_angle
         end
       end
       norm_sum = sum/outputs.size1.fact
