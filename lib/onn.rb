@@ -33,12 +33,13 @@ module OscillatorNeuralNetwork
     #   num_inputs:      the number of inputs in the network
     #   num_evals_param: (optional) parameter used to decide how many evaluations to complete before evaluating outputs
     def initialize(input_list, node_data, connections, num_outputs, num_inputs, num_evals_param=DEFAULT_NUM_EVALS_PARAM)
-      @input_list = input_list.clone
+      @input_list = input_list
       @node_data = node_data.clone
       @num_outputs = num_outputs 
       @num_inputs = num_inputs
       @num_evals_param = num_evals_param
       @connections = connections.clone                
+      @t_step, @eval_steps = calc_time_vars 
       @nodes = create_node_list(@num_inputs, node_data) 
       set_input(0)                         
     end
@@ -51,7 +52,7 @@ module OscillatorNeuralNetwork
       nodes = []
       empty_vector = GSL::Vector.calloc(node_data.size2)
       num_inputs.times do
-        nodes << OscillatorNode.new(empty_vector,self)
+        nodes << OscillatorNode.new(empty_vector.clone,self)
       end
       node_data.each_row do |node_datum|
         nodes << OscillatorNode.new(node_datum, self) # Initialize node states
@@ -62,14 +63,12 @@ module OscillatorNeuralNetwork
 
     # Sets a new input set into the network and sets it up to run
     def set_input(index)
-      new_input_vals = []
-      @input_list.each do |input|
-        new_input_vals << input.row(index) 
+      new_input_vals = @input_list[index]
+      row_index = 0
+      new_input_vals.each_row do |input|
+        @nodes[row_index].states_matrix.set_row(0,input)
+        row_index += 1
       end
-      new_input_vals.each_index do |input|
-        @nodes[input].states_matrix.set_row(0,input)
-      end
-      @t_step, @eval_steps = calc_time_vars 
       @curr_time = 0.0                                              
       @curr_step = 0
     end
@@ -102,18 +101,23 @@ module OscillatorNeuralNetwork
     # Returns both values in this order: t_step, eval_steps
     def calc_time_vars
       a_vals_arr = []
-      @nodes.each do |node|
-        a_vals_arr << node.states_matrix[0,0]
+      @node_data.each_row do |node|
+        a_vals_arr << node[0]
+      end
+      @input_list.each do |input_set|
+        input_set.each_row do |node|
+          a_vals_arr << node[0]
+        end
       end
       a_vals = a_vals_arr.to_gv
-      freq_vals = a_vals.sqrt/2*GSL::M_PI
+      freq_vals = a_vals.sqrt/(2*GSL::M_PI)
       ones = GSL::Vector.alloc(freq_vals.len).set_all(1)
       quotients = ones/(2*freq_vals)
       min_quotient = quotients.min
       t_step = 0.4*min_quotient
       periods = quotients*2 
       max_period = periods.max
-      return t_step, ((max_period*@eval_steps_param).round-1)
+      return t_step, ((max_period*@num_evals_param).round-1)
     end
 
     # Stores connection information from the connections matrix into the nodes.
