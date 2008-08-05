@@ -21,9 +21,32 @@ class TestGAONN < Test::Unit::TestCase
 
   def test_run
     best_chrom, fitness = @ga.run
-    puts "best_chrom"
-    puts best_chrom
-    puts "fitness" + fitness.to_s
+    @net = ONN.new(@inputs,best_chrom.node_data,@conns,2,1)
+
+    amps1 = []
+    amps2 = []
+
+    @net.eval_over_time
+
+    amp1, freq1 = @net.fourier_analyze(3)
+    amps1 << amp1
+    amp2, freq2 = @net.fourier_analyze(4)
+    amps2 << amp2
+
+    @input_list.size do |index|
+      @net.set_input(index)
+      @net.eval_over_time
+      amp1, freq1 = @net.fourier_analyze(3)
+      amps1 << amp1
+      amp2, freq2 = @net.fourier_analyze(4)
+      amps2 << amp2
+    end
+
+    input_a_vals = []
+    @input_list.each do
+      input_a_vals << @input_list[0]
+    end
+    input_a_vals.to_gv.graph(amps1,amps2,"-S 16 -m -2 -T png -C -X 'input a' -Y 'output amps' -L 'best chromosome output amps vs input a' > ga_output_amps.png")
   end
 
 end
