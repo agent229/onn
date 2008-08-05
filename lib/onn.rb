@@ -20,7 +20,7 @@ module OscillatorNeuralNetwork
     attr_reader :curr_time        # Current simulated time
     attr_reader :curr_step        # Current time step number
 
-    DEFAULT_NUM_EVALS_PARAM = 500 # Parameter helping decide how many evaluations to get the network to a stable state
+    DEFAULT_NUM_EVALS_PARAM = 5 # Parameter helping decide how many evaluations to get the network to a stable state
 
 #### Initialization ####
 
@@ -54,10 +54,13 @@ module OscillatorNeuralNetwork
       num_inputs.times do
         nodes << OscillatorNode.new(empty_vector.clone,self)
       end
+      row_index = 0
       node_data.each_row do |node_datum|
-        nodes << OscillatorNode.new(node_datum, self) # Initialize node states
+        nodes << OscillatorNode.new(node_datum, self) unless row_index < num_inputs
+        row_index += 1
       end
       nodes = set_conns_from_mat(nodes)               # Set connections
+      p nodes.size
       return nodes
     end
 
@@ -189,6 +192,7 @@ module OscillatorNeuralNetwork
     def increment_time
       @curr_time += @t_step
       @curr_step += 1
+      puts @curr_step
     end
 
     # Uses fourier/wavelet transform to get dominant frequency, amplitude
