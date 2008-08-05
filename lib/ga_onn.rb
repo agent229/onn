@@ -8,7 +8,7 @@ module GAONN
   include OscillatorNeuralNetwork
 
   # Factorial convenience method
-  class Integer
+  class Integer < Numeric 
     def fact
       (2..self).inject(1) { |f, n| f * n }
     end
@@ -17,8 +17,8 @@ module GAONN
   class GA
 
     # GA parameter default values
-    DEFAULT_POPULATION_SIZE   = 100
-    DEFAULT_NUM_GENS          = 100
+    DEFAULT_POPULATION_SIZE   = 2 
+    DEFAULT_NUM_GENS          = 10
     DEFAULT_MUTATION_RATE     = 0.4
     DEFAULT_MUTATION_RADIUS   = 1.0 
     DEFAULT_SEED              = 0
@@ -68,10 +68,11 @@ module GAONN
     #    4. Return the fittest member of the population and its fitness
     def run
       generate_initial_population 
-      @max_generation.times do
+      @max_generation.times do |generation|
         offsprings = selection 
         reproduction
         replace_worst_ranked(offsprings)
+        puts "gen #:" + generation.to_s
       end
       return best_chromosome, best_chromosome.normalized_fitness
     end
@@ -117,7 +118,7 @@ module GAONN
           acum_fitness += chromosome.normalized_fitness
         end
       else
-        @population.each { |chromosome| chromosome.normalized_fitess = 1 }
+        @population.each { |chromosome| chromosome.normalized_fitness = 1 }
       end
       selected_to_breed = []
       ((2*@population_size)/3).times do 
@@ -129,7 +130,7 @@ module GAONN
     # Mutates all with same chance, reproduces (by copying) those that are good.
     def reproduction
       @population.each do |chromosome|
-        Chromosome.mutate(chromosome)
+        Chromosome.mutate(chromosome,@mutation_radius,@mutation_rate)
       end
     end
     
@@ -176,14 +177,15 @@ module GAONN
       return mat2
     end
 
-    def self.mutate(chrom)
-      mutation_radius = @ga.mutation_radius * (1-chrom.normalized_fitness)
+    def self.mutate(chrom,mutation_radius,mutation_rate)
+      mutation_radius = mutation_radius * (1-chrom.normalized_fitness)
       mat = chrom.node_data
       changed_flag = false
       mat.collect! { |entry|
-        if chrom.normalized_fitness && rand < ((1-chrom.normalized_fitness) * @ga.mutation_rate)
+        if chrom.normalized_fitness && rand < ((1-chrom.normalized_fitness) * mutation_rate)
           entry + (rand(2*mutation_radius)-mutation_radius) 
           changed_flag = true
+        else entry
         end
       }
       @fitness = nil if changed_flag
@@ -193,21 +195,39 @@ module GAONN
     #   chromosome: a chromosome from the GA (for now, a node_data matrix)
     def fitness
 
+      puts "fitness called"
+   
       return @fitness if @fitness
 
       outputs = GSL::Matrix.alloc(@ga.num_inputs,@ga.num_outputs)
       @net = ONN.new(@ga.input_list,@node_data,@ga.conns,@ga.num_outputs,@ga.num_inputs)
+      beg_ind = @net.nodes.size-@ga.num_outputs
+      end_ind = @net.nodes.size
 
       @net.eval_over_time
-      amps, freqs = @net.fourier_analyze
+      puts "finished evaluating net 1st time"
+      amps = []
+      freqs = []
+      for index in beg_ind...end_ind 
+        amps_i, freqs_i = @net.fourier_analyze(index)
+        amps << amps_i
+      end
       outputs.set_row(0,amps.to_gv)
 
       0..@ga.input_list.size do |index|
         @net.set_input(index)
         @net.eval_over_time
-        amps, freqs = @net.fourier_analyze
+        puts "finished evaluating net" + index.to_s + "th time"
+        amps = []
+        freqs = []
+        for index in beg_ind...end_ind 
+          amps_i, freqs_i = @net.fourier_analyze(index)
+          amps << amps_i
+        end
         outputs.set_row(index,amps.to_gv)
       end
+
+      puts "finished all evals"
 
       error = eval_error(outputs)
       @fitness = 1/error
@@ -219,18 +239,21 @@ module GAONN
       outputs = outputs_mat.clone
       sum = 0
       max_row = outputs.size1
-      0..max_row do |row_index|
-        row_index..max_row do |index2|
+      fact = 1
+      for row_index in 0...max_row 
+        for index2 in row_index...max_row
           v1 = outputs[row_index]
           v2 = outputs[index2]
           dot_prod = v1*v2.col
-          v1mag = v1.collect{|v| v*v}.sqrt
-          v2mag = v2.collect{|v| v*v}.sqrt
+          v1mag = Math::sqrt(v1.collect{|v| v*v}.sum)
+          v2mag = Math::sqrt(v2.collect{|v| v*v}.sum)
           cos_angle = dot_prod/(v1mag*v2mag)
           sum += cos_angle
         end
+        fact *= row_index
       end
-      norm_sum = sum/outputs.size1.fact
+      puts "sum: " + sum.to_s
+      norm_sum = sum/fact
       return norm_sum
     end
 
