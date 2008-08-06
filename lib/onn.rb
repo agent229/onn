@@ -1,11 +1,7 @@
 # This is an implementation of oscillator neural networks.
 # These networks are made of nodes which are harmonic oscillators.
-# The nodes are capable of updating their own states based on
-# inherent frequency, damping, and inputs from other nodes. 
 # The ONN class describes an entire network object, and
 # the OscillatorNode class describes a single node.
-# By importing the OscillatorNeuralNetwork module, you can create and
-# run an ONN and plot data and observe behavior.
 
 module OscillatorNeuralNetwork
 
@@ -13,26 +9,27 @@ module OscillatorNeuralNetwork
 
   class ONN 
   
-    attr_accessor :nodes          # An array of OscillatorNode objects
-    attr_reader :t_step           # time step
-    attr_reader :eval_steps       # number of steps to run net
-    attr_reader :connections      # Connections Matrix
-    attr_reader :curr_time        # Current simulated time
-    attr_reader :curr_step        # Current time step number
+    attr_accessor :nodes      # An array of OscillatorNode objects
+    attr_reader :t_step       # time step
+    attr_reader :eval_steps   # number of steps to run net
+    attr_reader :connections  # Connections Matrix
+    attr_reader :curr_time    # Current simulated time
+    attr_reader :curr_step    # Current time step number
 
-    DEFAULT_NUM_EVALS_PARAM = 5 # Parameter helping decide how many evaluations to get the network to a stable state
+    DEFAULT_NUM_EVALS_PARAM = 10
     DEFAULT_T_STEP_PARAM    = 0.6
 
 #### Initialization ####
 
     # Initializes an network of coupled harmonic oscillators. 
-    #   input_list:      a list of input data representing different sets of inputs to train the network on. 
-    #                    Should be a GSL::Matrix with rows representing the input nodes, cols their different values
-    #   node_data:       a GSL::Matrix containing row vectors of initial node data (see OscillatorNode class for detail) 
+    #   input_list:      a list of input data representing different sets of inputs to train the network
+    #                    Each entry in the list is a GSL::Matrix which is a set of inputs, one row per input node. 
+    #   node_data:       a GSL::Matrix containing row vectors of initial node data 
     #   connections:     a GSL::Matrix of connection strengths. ijth entry is connection from node i to node j
     #   num_outputs:     the number of outputs in the network
     #   num_inputs:      the number of inputs in the network
     #   num_evals_param: (optional) parameter used to decide how many evaluations to complete before evaluating outputs
+    #   t_step_param:    (optional) parameter used to decide the time step
     def initialize(input_list, node_data, connections, num_outputs, num_inputs, num_evals_param=DEFAULT_NUM_EVALS_PARAM, t_step_param=DEFAULT_T_STEP_PARAM)
       @input_list = input_list
       @node_data = node_data.clone
@@ -42,32 +39,34 @@ module OscillatorNeuralNetwork
       @t_step_param = t_step_param
       @connections = connections.clone                
       @t_step, @eval_steps = calc_time_vars 
-      @nodes = create_node_list(@num_inputs, node_data) 
+      puts "t step: " + @t_step.to_s
+      puts "num evals: " + @eval_steps.to_s
+      @nodes = create_node_list 
       set_input(0)                         
     end
 
     # Creates a list of OscillatorNode objects which contain the data. 
-    #   num_inputs: the number of input nodes to reserve space for
-    #   node_data:  GSL::Matrix with rows containing node data vectors (see OscillatorNode for detail)
-    # Returns an Array of initialized OscillatorNodes. 
-    def create_node_list(num_inputs, node_data)
+    def create_node_list
       nodes = []
-      empty_vector = GSL::Vector.calloc(node_data.size2)
-      num_inputs.times do
+      empty_vector = GSL::Vector.calloc(@node_data.size2)
+      @num_inputs.times do
         nodes << OscillatorNode.new(empty_vector.clone,self)
       end
       row_index = 0
-      node_data.each_row do |node_datum|
-        nodes << OscillatorNode.new(node_datum, self) unless row_index < num_inputs
+      @node_data.each_row do |node_datum|
+        nodes << OscillatorNode.new(node_datum, self) unless row_index < @num_inputs
         row_index += 1
       end
-      nodes = set_conns_from_mat(nodes)               # Set connections
+      throw "nodes wrong length" if nodes.size != @node_data.size1
+      nodes = set_conns_from_mat(nodes)
       return nodes
     end
 
     # Sets a new input set into the network and sets it up to run
+    #   index: the index describing which set of inputs to use
     def set_input(index)
       new_input_vals = @input_list[index]
+      throw "wrong input type" if new_input_vals.class != GSL::Matrix
       row_index = 0
       new_input_vals.each_row do |input|
         @nodes[row_index].states_matrix.set_row(0,input)
@@ -80,8 +79,6 @@ module OscillatorNeuralNetwork
 #### Evaluation ####
 
     # Evaluates the network over time over one input (the one currently encoded in the network). 
-    # The number of times it is called is determined by parameters and
-    # initial conditions of the system (stored in @eval_steps)
     def eval_over_time
       (@eval_steps-1).times do eval end 
     end
@@ -89,13 +86,13 @@ module OscillatorNeuralNetwork
     # Evaluates the network's output state by propagating the current input states through the network.
     # Evaluates over one time step, then increments the time step after updating the states.
     def eval
-      @nodes.each do |node|  # Each node tells its state to nodes it is connected to
+      @nodes.each do |node|  
         node.propagate
       end
       @nodes.each do |node|
-        node.update_state    # Calculate and update the node states
+        node.update_state   
       end
-      increment_time         # Increment the time
+      increment_time 
     end
 
 #### Custom accessor methods ####
@@ -234,7 +231,7 @@ module OscillatorNeuralNetwork
 
     attr_accessor :states_matrix   # Matrix containing state row vectors over time (first row = first state)
     attr_accessor :input_sum_terms # Sum of current inputs to node
-    attr_accessor :out_conns       # Hash of outgoing connections
+    attr_accessor :out_conns       # Hash of outgoing connections in form Node => connection strength
     attr_accessor :layer           # The layer number of this node
 
     # Globally available system of ODEs describing oscillators
@@ -306,18 +303,18 @@ module OscillatorNeuralNetwork
     # Updates the current state based on the current states of inputs to this node.  
     def update_state
 
-      # TODO uncomment once update_input_state works
-      # if(@layer == 0)
-      #   update_input_state
-      #   return
-      # end
+      # TODO uncomment later
+      #if(@layer == 0)
+      #  update_input_state
+      #  return
+      #end
 
       # Store time step indices
       last_time_step = @network.get_curr_step
       next_time_step = last_time_step + 1 
 
       # Calculate sum of inputs
-      sum = @input_sum_terms.inject(0){|sum,item| sum+item}
+      sum = @input_sum_terms.inject(0){|sum,item| sum + item}
 
       # An oscillator
       #   a: spring constant
@@ -356,6 +353,7 @@ module OscillatorNeuralNetwork
       set_x(next_time_step,x[0])
       set_x_prime(next_time_step,x[1])
       # set_x_dbl_prime(next_time_step,sum-b*x[1]-a*x[0])
+
       @input_sum_terms = []
     end
 
@@ -367,7 +365,6 @@ module OscillatorNeuralNetwork
     #   x_dbl_prime = -A*a*sin(sqrt(a)*t+phi) 
     #   where A = sqrt(x_prime^2+x^2), phi = arctan(x/x_prime)
     # Stores all of the new states in the next state vector
-    # TODO FIXME 
     def update_input_state
       last_time_step = @network.get_curr_step
       next_time_step = last_time_step + 1
