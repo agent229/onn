@@ -21,6 +21,7 @@ module OscillatorNeuralNetwork
     attr_reader :curr_step        # Current time step number
 
     DEFAULT_NUM_EVALS_PARAM = 5 # Parameter helping decide how many evaluations to get the network to a stable state
+    DEFAULT_T_STEP_PARAM    = 0.6
 
 #### Initialization ####
 
@@ -32,12 +33,13 @@ module OscillatorNeuralNetwork
     #   num_outputs:     the number of outputs in the network
     #   num_inputs:      the number of inputs in the network
     #   num_evals_param: (optional) parameter used to decide how many evaluations to complete before evaluating outputs
-    def initialize(input_list, node_data, connections, num_outputs, num_inputs, num_evals_param=DEFAULT_NUM_EVALS_PARAM)
+    def initialize(input_list, node_data, connections, num_outputs, num_inputs, num_evals_param=DEFAULT_NUM_EVALS_PARAM, t_step_param=DEFAULT_T_STEP_PARAM)
       @input_list = input_list
       @node_data = node_data.clone
       @num_outputs = num_outputs 
       @num_inputs = num_inputs
       @num_evals_param = num_evals_param
+      @t_step_param = t_step_param
       @connections = connections.clone                
       @t_step, @eval_steps = calc_time_vars 
       @nodes = create_node_list(@num_inputs, node_data) 
@@ -116,7 +118,7 @@ module OscillatorNeuralNetwork
       ones = GSL::Vector.alloc(freq_vals.len).set_all(1)
       quotients = ones/(2*freq_vals)
       min_quotient = quotients.min
-      t_step = 0.4*min_quotient
+      t_step = @t_step_param*min_quotient
       periods = quotients*2 
       max_period = periods.max
       return t_step, ((max_period*@num_evals_param).round-1)
