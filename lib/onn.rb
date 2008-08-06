@@ -60,7 +60,6 @@ module OscillatorNeuralNetwork
         row_index += 1
       end
       nodes = set_conns_from_mat(nodes)               # Set connections
-      p nodes.size
       return nodes
     end
 
@@ -192,7 +191,6 @@ module OscillatorNeuralNetwork
     def increment_time
       @curr_time += @t_step
       @curr_step += 1
-      puts @curr_step
     end
 
     # Uses fourier/wavelet transform to get dominant frequency, amplitude
