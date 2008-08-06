@@ -10,8 +10,8 @@ module GAONN
   class GA
 
     # GA parameter default values
-    DEFAULT_POPULATION_SIZE   = 5
-    DEFAULT_NUM_GENS          = 20
+    DEFAULT_POPULATION_SIZE   = 2
+    DEFAULT_NUM_GENS          = 2
     DEFAULT_MUTATION_RATE     = 0.5
     DEFAULT_MUTATION_RADIUS   = 1.0 
     DEFAULT_SEED              = 0
@@ -37,12 +37,15 @@ module GAONN
     #   mutation_radius: a description of how much to mutate things
     def initialize(node_data,connections,inputs,num_outputs,seed=DEFAULT_SEED,population_size=DEFAULT_POPULATION_SIZE,generations=DEFAULT_NUM_GENS,mutation_rate=DEFAULT_MUTATION_RATE,mutation_radius=DEFAULT_MUTATION_RADIUS)
       @population_size = population_size 
+      raise "0/negative population size" if @population_size <= 0
       @max_generation = generations
+      raise "0/negative num gens" if @max_generation <= 0
       @population = []     
       @mutation_rate = mutation_rate
       @mutation_radius = mutation_radius
       @node_data = node_data.clone
       @conns = connections.clone
+      raise "Bad input nodedata/conns length mismatch" if @node_data.size1 != @conns.size1
       @input_list = inputs
       @num_inputs = inputs[0].size1
       @num_outputs = num_outputs
@@ -54,18 +57,21 @@ module GAONN
     #    1. Choose initial population (randomly or otherwise distributed)
     #    2. Evaluate the fitness of each individual in the population
     #    3. Repeat until @max_generation:
-    #      1. Select best-ranking individuals to reproduce 
-    #      2. Breed new generation through mutation and give birth to offspring 
-    #      3. Evaluate the individual fitnesses of the offspring
-    #      4. Replace worst ranked part of population with offspring
+    #      1. Select best-ranking individuals to reproduce (copy)
+    #      2. Replace worst ranked part of population with offspring
+    #      3. Mutate current population
     #    4. Return the fittest member of the population and its fitness
     def run
       generate_initial_population 
       @max_generation.times do |generation|
         offsprings = selection 
-        reproduction
+        raise "wrong output from selection" if offsprings.class != Array
+        offsprings.each do |child|
+          raise "wrong output from selection" if child.class != AmpChromosome
+        end
         replace_worst_ranked(offsprings)
-        puts "gen # " + generation.to_s
+        reproduction
+        puts "finished gen # " + generation.to_s
       end
       return best_chromosome, best_chromosome.normalized_fitness
     end
@@ -74,6 +80,10 @@ module GAONN
     def generate_initial_population
       @population_size.times do
         @population << AmpChromosome.new(self)
+      end
+      raise "bad pop generation" if @population.size != @population_size
+      @population.each do |chrom|
+        raise "bad pop generation" if chrom.class != AmpChromosome
       end
     end
 
@@ -114,7 +124,7 @@ module GAONN
         @population.each { |chromosome| chromosome.normalized_fitness = 1 }
       end
       selected_to_breed = []
-      ((2*@population_size)/3).times do 
+      ((2*@population_size)/3).round.times do 
         selected_to_breed << select_random_individual(acum_fitness)
       end
       return selected_to_breed
@@ -131,6 +141,7 @@ module GAONN
     def replace_worst_ranked(offsprings)
       size = offsprings.length
       @population = @population[0..((-1*size)-1)] + offsprings
+      raise "wrong number replaced" if @population.size != @population_size
     end
     
     def select_random_individual(acum_fitness)
@@ -154,6 +165,8 @@ module GAONN
     def initialize(ga)
       @ga = ga
       @node_data = perturb_matrix(ga.node_data) 
+      raise "bad perturbation" if @node_data.size1 != ga.node_data.size1
+      raise "bad perturbation" if @node_data.size2 != ga.node_data.size2
     end
 
     # Adds uniform noise to a matrix in a given radius
@@ -181,7 +194,7 @@ module GAONN
         else entry
         end
       }
-      @fitness = nil if changed_flag
+      @fitness = nil if changed_flag==true
     end
 
     # Error/fitness function (for now based on "orthogonal amplitude" idea).
@@ -218,6 +231,8 @@ module GAONN
 
       error = eval_fitness(outputs)
       @fitness = 1 - 1/error
+      throw "fitness out of range!" if @fitness < 0 
+      throw "fitness out of range!" if @fitness > 1
       return @fitness
     end
 
