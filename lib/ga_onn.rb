@@ -123,7 +123,7 @@ module GAONN
     # Mutates all with same chance, reproduces (by copying) those that are good.
     def reproduction
       @population.each do |chromosome|
-        AmpChromosome.mutate(chromosome,@mutation_radius,@mutation_rate)
+        AmpChromosome.mutate(chromosome,@mutation_radius,@mutation_rate,@rng)
       end
     end
     
@@ -170,14 +170,14 @@ module GAONN
       return mat2
     end
 
-    def self.mutate(chrom,mutation_radius,mutation_rate)
+    def self.mutate(chrom,mutation_radius,mutation_rate,rng)
       mutation_radius = mutation_radius * (1-chrom.normalized_fitness)
       mat = chrom.node_data
       changed_flag = false
       mat.collect! { |entry|
-        if chrom.normalized_fitness && @ga.rng.uniform < ((1-chrom.normalized_fitness) * mutation_rate)
+        if chrom.normalized_fitness && rng.uniform < ((1-chrom.normalized_fitness) * mutation_rate)
           changed_flag = true
-          entry + (@ga.rng.uniform(2*mutation_radius)-mutation_radius) 
+          entry + (rng.uniform(2*mutation_radius)-mutation_radius) 
         else entry
         end
       }
