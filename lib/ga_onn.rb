@@ -10,10 +10,10 @@ module GAONN
   class GA
 
     # GA parameter default values
-    DEFAULT_POPULATION_SIZE   = 2
-    DEFAULT_NUM_GENS          = 2
+    DEFAULT_POPULATION_SIZE   = 50 
+    DEFAULT_NUM_GENS          = 50
     DEFAULT_MUTATION_RATE     = 0.5
-    DEFAULT_MUTATION_RADIUS   = 1.0 
+    DEFAULT_MUTATION_RADIUS   = 0.2 
     DEFAULT_SEED              = 0
 
     attr_accessor :node_data
@@ -186,14 +186,27 @@ module GAONN
     def self.mutate(chrom,mutation_radius,mutation_rate,rng)
       mutation_radius = mutation_radius * (1-chrom.normalized_fitness)
       mat = chrom.node_data
+      a_vals = mat.col(0)
+      b_vals = mat.col(1)
       changed_flag = false
-      mat.collect! { |entry|
+
+      a_vals.collect!{ |entry|
         if chrom.normalized_fitness && rng.uniform < ((1-chrom.normalized_fitness) * mutation_rate)
           changed_flag = true
-          entry + (rng.uniform(2*mutation_radius)-mutation_radius) 
+          entry + (rng.uniform*2*mutation_radius-mutation_radius) 
         else entry
         end
       }
+
+      b_vals.collect!{ |entry|
+        if chrom.normalized_fitness && rng.uniform < ((1-chrom.normalized_fitness) * mutation_rate)
+          changed_flag = true
+          entry + (rng.uniform*2*mutation_radius-mutation_radius) 
+        else entry
+        end
+      }
+      chrom.node_data.set_col(0,a_vals)
+      chrom.node_data.set_col(1,b_vals)
       @fitness = nil if changed_flag==true
     end
 
@@ -229,10 +242,7 @@ module GAONN
         outputs.set_row(index,amps.to_gv)
       end
 
-      error = eval_fitness(outputs)
-      @fitness = 1 - 1/error
-      throw "fitness out of range!" if @fitness < 0 
-      throw "fitness out of range!" if @fitness > 1
+      @fitness = eval_fitness(outputs)
       return @fitness
     end
 
