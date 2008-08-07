@@ -10,10 +10,10 @@ module GAONN
   class GA
 
     # GA parameter default values
-    DEFAULT_POPULATION_SIZE   = 50 
-    DEFAULT_NUM_GENS          = 50
-    DEFAULT_MUTATION_RATE     = 0.5
-    DEFAULT_MUTATION_RADIUS   = 0.2 
+    DEFAULT_POPULATION_SIZE   = 75 
+    DEFAULT_NUM_GENS          = 75 
+    DEFAULT_MUTATION_RATE     = 0.6
+    DEFAULT_MUTATION_RADIUS   = 0.4 
     DEFAULT_SEED              = 0
 
     attr_accessor :node_data
@@ -172,14 +172,8 @@ module GAONN
     # Adds uniform noise to a matrix in a given radius
     def perturb_matrix(mat)
       mat2 = mat.clone
-      mat2.collect! { |entry| entry + (@ga.rng.uniform*2*@ga.mutation_radius-@ga.mutation_radius) }
+      mat2.collect! { |entry| entry + (@ga.rng.uniform*@ga.mutation_radius) }
       row_index = 0
-      mat2.col(0).each do |a_val|
-        if a_val < 0
-          mat2[row_index,0] = a_val.abs
-        end
-        row_index += 1
-      end
       return mat2
     end
 
@@ -193,7 +187,7 @@ module GAONN
       a_vals.collect!{ |entry|
         if chrom.normalized_fitness && rng.uniform < ((1-chrom.normalized_fitness) * mutation_rate)
           changed_flag = true
-          entry + (rng.uniform*2*mutation_radius-mutation_radius) 
+          entry + (rng.uniform*mutation_radius) 
         else entry
         end
       }
@@ -201,7 +195,7 @@ module GAONN
       b_vals.collect!{ |entry|
         if chrom.normalized_fitness && rng.uniform < ((1-chrom.normalized_fitness) * mutation_rate)
           changed_flag = true
-          entry + (rng.uniform*2*mutation_radius-mutation_radius) 
+          entry + (rng.uniform*mutation_radius) 
         else entry
         end
       }
