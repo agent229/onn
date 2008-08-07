@@ -64,12 +64,7 @@ module GAONN
     def run
       generate_initial_population 
       @max_generation.times do |generation|
-        offsprings = selection 
-        raise "wrong output from selection" if offsprings.class != Array
-        offsprings.each do |child|
-          raise "wrong output from selection" if child.class != AmpChromosome
-        end
-        replace_worst_ranked(offsprings)
+        replace_worst_ranked(selection)
         reproduction
         puts "finished gen # " + generation.to_s
       end
@@ -139,8 +134,7 @@ module GAONN
     
     # replace worst ranked part of population with offspring
     def replace_worst_ranked(offsprings)
-      size = offsprings.length
-      @population = @population[0..((-1*size)-1)] + offsprings
+      @population = @population[0..((-1*offsprings.length)-1)] + offsprings
       raise "wrong number replaced" if @population.size != @population_size
     end
     
@@ -171,20 +165,16 @@ module GAONN
 
     # Adds uniform noise to a matrix in a given radius
     def perturb_matrix(mat)
-      mat2 = mat.clone
-      mat2.collect! { |entry| entry + (@ga.rng.uniform*@ga.mutation_radius) }
-      row_index = 0
+      mat2 = mat.collect { |entry| entry + (@ga.rng.uniform*@ga.mutation_radius) }
       return mat2
     end
 
     def self.mutate(chrom,mutation_radius,mutation_rate,rng)
       mutation_radius = mutation_radius * (1-chrom.normalized_fitness)
       mat = chrom.node_data
-      a_vals = mat.col(0)
-      b_vals = mat.col(1)
       changed_flag = false
 
-      a_vals.collect!{ |entry|
+      mat.col(0).collect!{ |entry|
         if chrom.normalized_fitness && rng.uniform < ((1-chrom.normalized_fitness) * mutation_rate)
           changed_flag = true
           entry + (rng.uniform*mutation_radius) 
@@ -192,15 +182,14 @@ module GAONN
         end
       }
 
-      b_vals.collect!{ |entry|
+      mat.col(1).collect!{ |entry|
         if chrom.normalized_fitness && rng.uniform < ((1-chrom.normalized_fitness) * mutation_rate)
           changed_flag = true
           entry + (rng.uniform*mutation_radius) 
         else entry
         end
       }
-      chrom.node_data.set_col(0,a_vals)
-      chrom.node_data.set_col(1,b_vals)
+
       @fitness = nil if changed_flag==true
     end
 
@@ -212,27 +201,30 @@ module GAONN
 
       outputs = GSL::Matrix.alloc(@ga.num_inputs,@ga.num_outputs)
       @net = ONN.new(@ga.input_list,@node_data,@ga.conns,@ga.num_outputs,@ga.num_inputs)
-      beg_ind = @net.nodes.size-@ga.num_outputs
-      end_ind = @net.nodes.size
 
       @net.eval_over_time
+
       amps = []
       freqs = []
-      for index in beg_ind...end_ind 
+
+      for index in @net.nodes.size-@ga.num_outputs...@net.nodes.size
         amps_i, freqs_i = @net.fourier_analyze(index)
         amps << amps_i
       end
+
       outputs.set_row(0,amps.to_gv)
 
       0..@ga.input_list.size do |index|
         @net.set_input(index)
         @net.eval_over_time
+
         amps = []
-        freqs = []
-        for index in beg_ind...end_ind 
+
+        for index in @net.nodes.size-@ga.num_outputs...@net.nodes.size 
           amps_i, freqs_i = @net.fourier_analyze(index)
           amps << amps_i
         end
+
         outputs.set_row(index,amps.to_gv)
       end
 
@@ -242,8 +234,7 @@ module GAONN
 
     # Evaluates the error of the @outputs currently stored
     def eval_fitness(outputs_mat)
-      outputs = outputs_mat.clone
-      det = Math::sqrt(GSL::Linalg::LU.det(outputs.transpose*outputs))
+      det = Math::sqrt(GSL::Linalg::LU.det(outputs_mat.transpose*outputs_mat))
       return det.abs
     end
 
