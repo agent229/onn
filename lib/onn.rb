@@ -16,8 +16,8 @@ module OscillatorNeuralNetwork
     attr_reader :curr_time    # Current simulated time
     attr_reader :curr_step    # Current time step number
 
-    DEFAULT_NUM_EVALS_PARAM = 10
-    DEFAULT_T_STEP_PARAM    = 0.6
+    DEFAULT_NUM_EVALS_PARAM = 25 
+    DEFAULT_T_STEP_PARAM    = 0.2
 
 #### Initialization ####
 
@@ -48,15 +48,17 @@ module OscillatorNeuralNetwork
     # Creates a list of OscillatorNode objects which contain the data. 
     def create_node_list
       nodes = []
-      empty_vector = GSL::Vector.calloc(@node_data.size2)
+
       @num_inputs.times do
-        nodes << OscillatorNode.new(empty_vector.clone,self)
+        nodes << OscillatorNode.new(GSL::Vector.calloc(@node_data.size2),self)
       end
+
       row_index = 0
       @node_data.each_row do |node_datum|
         nodes << OscillatorNode.new(node_datum, self) unless row_index < @num_inputs
         row_index += 1
       end
+
       throw "nodes wrong length" if nodes.size != @node_data.size1
       nodes = set_conns_from_mat(nodes)
       return nodes
@@ -65,13 +67,12 @@ module OscillatorNeuralNetwork
     # Sets a new input set into the network and sets it up to run
     #   index: the index describing which set of inputs to use
     def set_input(index)
-      new_input_vals = @input_list[index]
-      throw "wrong input type" if new_input_vals.class != GSL::Matrix
       row_index = 0
-      new_input_vals.each_row do |input|
+      @input_list[index].each_row do |input|
         @nodes[row_index].states_matrix.set_row(0,input)
         row_index += 1
       end
+
       @curr_time = 0.0                                              
       @curr_step = 0
     end
@@ -110,15 +111,15 @@ module OscillatorNeuralNetwork
           a_vals_arr << node[0]
         end
       end
-      a_vals = a_vals_arr.to_gv
-      freq_vals = a_vals.sqrt/(2*GSL::M_PI)
+
+      freq_vals = a_vals_arr.to_gv.sqrt/(2*GSL::M_PI)
       ones = GSL::Vector.alloc(freq_vals.len).set_all(1)
       quotients = ones/(2*freq_vals)
       min_quotient = quotients.min
-      t_step = @t_step_param*min_quotient
       periods = quotients*2 
       max_period = periods.max
-      return t_step, ((max_period*@num_evals_param).round-1)
+
+      return @t_step_param*min_quotient, ((max_period*@num_evals_param).round-1)
     end
 
     # Stores connection information from the connections matrix into the nodes.
@@ -127,6 +128,7 @@ module OscillatorNeuralNetwork
     def set_conns_from_mat(nodes)
       pointer_index = 0
       receiver_index = 0
+
       @connections.each_row do |pointer|
         pointer.each do |receiver|
           if !GSL::equal?(receiver, 0.0)
@@ -137,6 +139,7 @@ module OscillatorNeuralNetwork
         receiver_index = 0
         pointer_index += 1
       end
+
       return nodes
     end
 
@@ -157,8 +160,7 @@ module OscillatorNeuralNetwork
     # Plots a node's x values over time
     #   data: the GSL::Matrix describing the node's history
     def plot_x_over_time(node_num)
-      data = @nodes[node_num].states_matrix
-      x_vals = data.col(2) 
+      x_vals = @nodes[node_num].states_matrix.col(2) 
       t = GSL::Vector.linspace(0,@eval_steps*@t_step,@eval_steps)
       x_vals.graph(t,"-T png -C -X 'Time' -Y 'X' -L 'Waveform: Node #{node_num}' > xvals#{node_num}.png")
     end
@@ -311,7 +313,6 @@ module OscillatorNeuralNetwork
 
       # Store time step indices
       last_time_step = @network.get_curr_step
-      next_time_step = last_time_step + 1 
 
       # Calculate sum of inputs
       sum = @input_sum_terms.inject(0){|sum,item| sum + item}
@@ -348,11 +349,11 @@ module OscillatorNeuralNetwork
       end
 
       # Set new state variables
-      set_a(next_time_step,a)
-      set_b(next_time_step,b)
-      set_x(next_time_step,x[0])
-      set_x_prime(next_time_step,x[1])
-      # set_x_dbl_prime(next_time_step,sum-b*x[1]-a*x[0])
+      set_a(last_time_step+1,a)
+      set_b(last_time_step+1,b)
+      set_x(last_time_step+1,x[0])
+      set_x_prime(last_time_step+1,x[1])
+      # set_x_dbl_prime(last_time_step+1,sum-b*x[1]-a*x[0])
 
       @input_sum_terms = []
     end
