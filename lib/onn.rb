@@ -16,7 +16,7 @@ module OscillatorNeuralNetwork
     attr_reader :curr_time    # Current simulated time
     attr_reader :curr_step    # Current time step number
 
-    DEFAULT_NUM_EVALS_PARAM = 25 
+    DEFAULT_NUM_EVALS_PARAM = 1 
     DEFAULT_T_STEP_PARAM    = 0.2
 
 #### Initialization ####
@@ -55,11 +55,10 @@ module OscillatorNeuralNetwork
 
       row_index = 0
       @node_data.each_row do |node_datum|
-        nodes << OscillatorNode.new(node_datum, self) unless row_index < @num_inputs
+        nodes << OscillatorNode.new(node_datum, self) 
         row_index += 1
       end
 
-      throw "nodes wrong length" if nodes.size != @node_data.size1
       nodes = set_conns_from_mat(nodes)
       return nodes
     end
