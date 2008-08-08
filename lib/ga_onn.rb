@@ -222,7 +222,7 @@ module GAONN
         outputs.set_row(index,amps.to_gv)
       end
 
-      @fitness = Math::sqrt(GSL::Linalg::LU.det(outputs.transpose*outputs)).abs
+      @fitness = Math::sqrt(GSL::Linalg::LU.det(outputs.transpose*outputs).abs)
       return @fitness
     end
 
