@@ -12,8 +12,8 @@ module GAONN
     # GA parameter default values
     DEFAULT_POPULATION_SIZE   = 50 
     DEFAULT_NUM_GENS          = 50 
-    DEFAULT_MUTATION_RATE     = 0.6
-    DEFAULT_MUTATION_RADIUS   = 0.4 
+    DEFAULT_MUTATION_RATE     = 0.9
+    DEFAULT_MUTATION_RADIUS   = 3.5 
     DEFAULT_SEED              = 0
 
     attr_accessor :node_data
@@ -24,6 +24,8 @@ module GAONN
     attr_accessor :num_inputs
     attr_accessor :num_outputs
     attr_accessor :rng
+    attr_accessor :best_fitnesses_over_time
+    attr_reader   :max_generation
 
     # Creates a new GAONN
     #   node_data:       a matrix containing the hidden and output layer node data
@@ -41,6 +43,7 @@ module GAONN
       @max_generation = generations
       raise "0/negative num gens" if @max_generation <= 0
       @population = []     
+      @best_fitnesses_over_time = []
       @mutation_rate = mutation_rate
       @mutation_radius = mutation_radius
       @node_data = node_data.clone
@@ -107,6 +110,7 @@ module GAONN
     def selection
       @population.sort! { |a, b| b.fitness <=> a.fitness }
       best_fitness = @population[0].fitness
+      @best_fitnesses_over_time << best_fitness
       worst_fitness = @population.last.fitness
       acum_fitness = 0
       if best_fitness - worst_fitness > 0
@@ -158,6 +162,7 @@ module GAONN
     def initialize(ga)
       @ga = ga
       @node_data = perturb_matrix(ga.node_data) 
+      @raw_fitness = nil
       raise "bad perturbation" if @node_data.size1 != ga.node_data.size1
       raise "bad perturbation" if @node_data.size2 != ga.node_data.size2
     end
@@ -185,16 +190,16 @@ module GAONN
         row_index += 1
       end
 
-      @fitness = nil if changed_flag==true
+      @raw_fitness = nil if changed_flag==true
     end
 
     # Error/fitness function (for now based on "orthogonal amplitude" idea).
     #   chromosome: a chromosome from the GA (for now, a node_data matrix)
     def fitness
    
-      return @fitness if @fitness!=nil
+      return @raw_fitness if @raw_fitness!=nil
 
-      outputs = GSL::Matrix.alloc(@ga.num_inputs,@ga.num_outputs)
+      outputs = GSL::Matrix.alloc(@ga.input_list.size,@ga.num_outputs)
       @net = ONN.new(@ga.input_list,@node_data,@ga.conns,@ga.num_outputs,@ga.num_inputs)
 
       @net.eval_over_time
@@ -208,8 +213,8 @@ module GAONN
 
       outputs.set_row(0,amps.to_gv)
 
-      1...@ga.input_list.size do |index|
-        @net.set_input(index)
+      for input_index in 1...@ga.input_list.size 
+        @net.set_input(input_index)
         @net.eval_over_time
 
         amps = []
@@ -219,11 +224,11 @@ module GAONN
           amps << amps_i
         end
 
-        outputs.set_row(index,amps.to_gv)
+        outputs.set_row(input_index,amps.to_gv)
       end
 
-      @fitness = Math::sqrt(GSL::Linalg::LU.det(outputs.transpose*outputs).abs)
-      return @fitness
+      @raw_fitness = Math::sqrt(GSL::Linalg::LU.det(outputs.transpose*outputs).abs)
+      return @raw_fitness
     end
 
   end
