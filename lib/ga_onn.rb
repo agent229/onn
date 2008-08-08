@@ -10,8 +10,8 @@ module GAONN
   class GA
 
     # GA parameter default values
-    DEFAULT_POPULATION_SIZE   = 75 
-    DEFAULT_NUM_GENS          = 75 
+    DEFAULT_POPULATION_SIZE   = 50 
+    DEFAULT_NUM_GENS          = 50 
     DEFAULT_MUTATION_RATE     = 0.6
     DEFAULT_MUTATION_RADIUS   = 0.4 
     DEFAULT_SEED              = 0
@@ -45,7 +45,6 @@ module GAONN
       @mutation_radius = mutation_radius
       @node_data = node_data.clone
       @conns = connections.clone
-      raise "Bad input nodedata/conns length mismatch" if @node_data.size1 != @conns.size1
       @input_list = inputs
       @num_inputs = inputs[0].size1
       @num_outputs = num_outputs
@@ -170,25 +169,21 @@ module GAONN
     end
 
     def self.mutate(chrom,mutation_radius,mutation_rate,rng)
-      mutation_radius = mutation_radius * (1-chrom.normalized_fitness)
+      mutation_radius *= (1-chrom.normalized_fitness)
       mat = chrom.node_data
       changed_flag = false
 
-      mat.col(0).collect!{ |entry|
-        if chrom.normalized_fitness && rng.uniform < ((1-chrom.normalized_fitness) * mutation_rate)
-          changed_flag = true
-          entry + (rng.uniform*mutation_radius) 
-        else entry
+      row_index = 0
+      mat.each_row do |row|
+        for column in 0..1 do  
+          if chrom.normalized_fitness && rng.uniform < ((1-chrom.normalized_fitness) * mutation_rate)
+            puts mutation_radius
+            mat[row_index][column] += rng.uniform*mutation_radius
+            changed_flag = true
+          end
         end
-      }
-
-      mat.col(1).collect!{ |entry|
-        if chrom.normalized_fitness && rng.uniform < ((1-chrom.normalized_fitness) * mutation_rate)
-          changed_flag = true
-          entry + (rng.uniform*mutation_radius) 
-        else entry
-        end
-      }
+        row_index += 1
+      end
 
       @fitness = nil if changed_flag==true
     end
@@ -197,7 +192,7 @@ module GAONN
     #   chromosome: a chromosome from the GA (for now, a node_data matrix)
     def fitness
    
-      return @fitness if @fitness
+      return @fitness if @fitness!=nil
 
       outputs = GSL::Matrix.alloc(@ga.num_inputs,@ga.num_outputs)
       @net = ONN.new(@ga.input_list,@node_data,@ga.conns,@ga.num_outputs,@ga.num_inputs)
@@ -205,7 +200,6 @@ module GAONN
       @net.eval_over_time
 
       amps = []
-      freqs = []
 
       for index in @net.nodes.size-@ga.num_outputs...@net.nodes.size
         amps_i, freqs_i = @net.fourier_analyze(index)
@@ -214,7 +208,7 @@ module GAONN
 
       outputs.set_row(0,amps.to_gv)
 
-      0..@ga.input_list.size do |index|
+      1...@ga.input_list.size do |index|
         @net.set_input(index)
         @net.eval_over_time
 
@@ -228,14 +222,8 @@ module GAONN
         outputs.set_row(index,amps.to_gv)
       end
 
-      @fitness = eval_fitness(outputs)
+      @fitness = Math::sqrt(GSL::Linalg::LU.det(outputs.transpose*outputs)).abs
       return @fitness
-    end
-
-    # Evaluates the error of the @outputs currently stored
-    def eval_fitness(outputs_mat)
-      det = Math::sqrt(GSL::Linalg::LU.det(outputs_mat.transpose*outputs_mat))
-      return det.abs
     end
 
   end
