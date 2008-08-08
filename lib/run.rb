@@ -1,22 +1,22 @@
 require File.expand_path(File.dirname(__FILE__)) + "/../lib/ga_onn"
 include GAONN
 
-  @node_data = GSL::Matrix[[0.7,0,1,0,0,0],[0.3,0.1,0,0,0,1],[0.8,0.1,0,0,0,1],[0.2,0.1,0,0,0,2],[0.7,0.1,0,0,0,2]]
+  @node_data = GSL::Matrix[[0.3,0.1,0,0,0,1],[0.8,0.1,0,0,0,1],[0.2,0.1,0,0,0,2],[0.7,0.1,0,0,0,2]]
   @conns = GSL::Matrix[[0,0.4,0.4,0,0],[0,0,0.2,0.4,-0.6],[0,0.2,0,-0.6,0.4],[0,0,0,0,0],[0,0,0,0,0]]
   @inputs = []
   srand(1)
-  10.times do |index|
+  20.times do |index|
     input_set = GSL::Matrix.calloc(1,5)
     input_set[0,0] = rand*3
     input_set[0,2] = rand*2
     @inputs << input_set
   end
-  @ga = GA.new(@node_data,@conns,@inputs,2,0,100,200,0.75,1.5)
+  @ga = GA.new(@node_data,@conns,@inputs,2,0,50,50,0.75,1.5)
   best_chrom, fitness = @ga.run
   puts "best chromosome data: "
   puts best_chrom.node_data
 
-  @net = ONN.new(@inputs,best_chrom.node_data,@conns,2,1,25,0.2)
+  @net = ONN.new(@inputs,best_chrom.node_data,@conns,2,1)
 
   amps1 = []
   amps2 = []
