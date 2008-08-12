@@ -10,10 +10,10 @@ module GAONN
   class GA
 
     # GA parameter default values
-    DEFAULT_POPULATION_SIZE   = 50 
-    DEFAULT_NUM_GENS          = 50 
+    DEFAULT_POPULATION_SIZE   = 25 
+    DEFAULT_NUM_GENS          = 25 
     DEFAULT_MUTATION_RATE     = 0.9
-    DEFAULT_MUTATION_RADIUS   = 3.5 
+    DEFAULT_MUTATION_RADIUS   = 1.0 
     DEFAULT_SEED              = 0
 
     attr_accessor :node_data
@@ -110,8 +110,10 @@ module GAONN
     def selection
       @population.sort! { |a, b| b.fitness <=> a.fitness }
       best_fitness = @population[0].fitness
+      puts "best fitness " + best_fitness.to_s
       @best_fitnesses_over_time << best_fitness
       worst_fitness = @population.last.fitness
+      puts "worst fitness " + worst_fitness.to_s
       acum_fitness = 0
       if best_fitness - worst_fitness > 0
         @population.each do |chromosome| 
@@ -125,6 +127,7 @@ module GAONN
       ((2*@population_size)/3).round.times do 
         selected_to_breed << select_random_individual(acum_fitness)
       end
+      puts "acum fitness " + acum_fitness.to_s 
       return selected_to_breed
     end
    
@@ -182,8 +185,12 @@ module GAONN
       mat.each_row do |row|
         for column in 0..1 do  
           if chrom.normalized_fitness && rng.uniform < ((1-chrom.normalized_fitness) * mutation_rate)
-            puts mutation_radius
-            mat[row_index][column] += rng.uniform*mutation_radius
+            mutation = rng.uniform*2*mutation_radius - mutation_radius
+            new_val = mat[row_index][column] + mutation
+            if new_val < 0
+              new_val = new_val.abs
+            end
+            mat[row_index][column] = new_val
             changed_flag = true
           end
         end
