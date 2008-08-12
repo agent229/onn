@@ -8,10 +8,18 @@ require 'gsl'
 class TestMultipleInputs < Test::Unit::TestCase
 
   def setup
-    @node_data = GSL::Matrix[[0.7,0,1,0,0,0],[0.3,0.1,0,0,0,1],[0.8,0.1,0,0,0,1],[0.2,0.1,0,0,0,2],[0.7,0.1,0,0,0,2]]
+    @node_data = GSL::Matrix[[0.3,0.1,0,0,0,1],[0.8,0.1,0,0,0,1],[0.2,0.1,0,0,0,2],[0.7,0.1,0,0,0,2]]
     @conns = GSL::Matrix[[0,0.4,0.4,0,0],[0,0,0.2,0.4,-0.6],[0,0.2,0,-0.6,0.4],[0,0,0,0,0],[0,0,0,0,0]]
-    @inputs = GSL::Vector.linspace(0.1,3.0,30)
+    @inputs = [] 
+    50.times do |index|
+      input_set = GSL::Matrix.calloc(1,5)
+      input_set[0,0] = rand*4
+      input_set[0,2] = rand*2
+      @inputs << input_set
+    end
+
     @num_outputs = 2
+    @num_inputs = 1
   end
 
   def test_inputs
@@ -21,36 +29,37 @@ class TestMultipleInputs < Test::Unit::TestCase
     node4freqs = []
     input_index = 1
 
-    @inputs.each do |input|
-      @node_data[0][0] = input
-      @net = GAONN.new(@node_data,@conns,@num_outputs,2000)
+    @net = ONN.new(@inputs,@node_data,@conns,@num_outputs,@num_inputs)
+
+    @net.eval_over_time
+
+    ret_vals3 = @net.fourier_analyze(3)
+    amp3 = ret_vals3[0]
+    node3amps << amp3
+    ret_vals4 = @net.fourier_analyze(4)
+    amp4 = ret_vals4[0]
+    node4amps << amp4 
+
+    for index in 1...@inputs.size 
+      @net.set_input(index)
       @net.eval_over_time
       ret_vals3 = @net.fourier_analyze(3)
-      assert_equal(ret_vals3.size,2)
       amp3 = ret_vals3[0]
-      freq3 = ret_vals3[1]
-      assert_kind_of(Float,amp3)
-      assert_kind_of(Float,freq3)
       node3amps << amp3
-      node3freqs << freq3
-      assert_equal(input_index,node3amps.size)
-      assert_equal(input_index,node3freqs.size)
       ret_vals4 = @net.fourier_analyze(4)
-      assert_equal(2,ret_vals4.size)
       amp4 = ret_vals4[0]
-      freq4 = ret_vals4[1]
-      assert_kind_of(Float,amp4)
-      assert_kind_of(Float,freq4)
       node4amps << amp4 
-      node4freqs << freq4 
-      assert_equal(node4amps.size,input_index)
-      assert_equal(node4freqs.size,input_index)
-      input_index += 1
     end
 
-    GSL::graph(@inputs,node3amps.to_gv,node4amps.to_gv,"-S 16 -m -2 -T png -C -X 'input a' -Y 'output amplitudes' -L 'Output Amplitudes vs. Input a' > output_amps.png")
-    GSL::graph(@inputs,node3freqs.to_gv,node4freqs.to_gv,"-S 16 -m -2 -T png -C -X 'input a' -Y 'output frequencies' -L 'Output Frequencies vs. Input a' > output_freqs.png")
-  end
+    puts node3amps
+    puts node4amps
 
+    input_a_vals = []
+    @inputs.each do |input|
+      input_a_vals << input[0,0]
+    end
+
+    GSL::graph(input_a_vals.to_gv.sqrt,node3amps.to_gv,node4amps.to_gv,"-S 16 -m -2 -T png -C -X 'input frequency' -Y 'output amplitudes' -L 'Output Amplitudes vs. Input Frequency' > output_amps.png")
+  end
 
 end
